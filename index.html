@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>虎崗碎碎念｜桃園高中校刊特輯</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700;900&family=Noto+Sans+TC:wght@300;400;500&family=Special+Elite&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="newspaper">
+    <header class="masthead">
+        <div class="masthead-top">
+            <span>桃園高中校刊社出版</span>
+            <span class="edition-badge">SPECIAL EDITION</span>
+            <span id="today-date"></span>
+        </div>
+        <div class="masthead-title" style="padding: 20px;">
+            <div class="masthead-main">虎崗碎碎念</div>
+            <div style="color: var(--stamp); letter-spacing: 4px;">— 在成功路上，我們必經崩潰 —</div>
+        </div>
+    </header>
+
+    <nav>
+        <button class="active" onclick="showPage('home')">頭版</button>
+        <button onclick="showPage('browse')">碎碎念牆</button>
+        <button onclick="showPage('submit')">我要投稿</button>
+        <button onclick="showPage('admin')">編輯台</button>
+    </nav>
+
+    <div class="content">
+        <div class="page active" id="page-home">
+            <div class="front-page">
+                <div class="main-story">
+                    <h1 style="font-size: 32px; margin-bottom: 15px;">「這個學校，我有一千句話要說」</h1>
+                    <p style="line-height: 1.8;">本期校刊社特別企劃「虎崗碎碎念」，廣徵全校同學對日常校園生活的心聲。那些被鐘聲切碎的真心話，都將在此被聽見。</p>
+                    <div style="margin: 20px 0; padding: 15px; border-top: 1px solid var(--aged); border-bottom: 1px solid var(--aged); text-align: center;">
+                        <div class="stat-num" id="home-total">0</div>
+                        <div style="font-size: 12px; letter-spacing: 2px;">已刊登診斷書</div>
+                    </div>
+                    <button class="forms-btn" onclick="showPage('submit')">立即撰寫診斷書 →</button>
+                </div>
+                <div class="sidebar">
+                    <h3 style="margin-bottom: 15px; border-bottom: 1px solid var(--ink);">最新鮮的崩潰</h3>
+                    <div id="home-sidebar">讀取中...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="page" id="page-browse">
+            <div class="section-head"><h2>全部診斷書</h2></div>
+            <div id="complaints-wall"></div>
+        </div>
+
+        <div class="page" id="page-submit">
+            <div class="forms-box">
+                <div style="font-size: 50px;">📝</div>
+                <h2>虎崗碎碎念-投稿診斷書</h2>
+                <p>請確保您的內容優雅且不指名道姓。</p>
+                <a class="forms-btn" href="https://forms.gle/98NDrigY8sowqvKW7" target="_blank">打開 Google 表單投稿</a>
+            </div>
+        </div>
+
+        <div class="page" id="page-admin">
+            <div id="admin-login-box">
+                <div style="max-width: 300px; margin: 40px auto; text-align: center; border: 2px solid var(--ink); padding: 20px; background: white;">
+                    <h3>🔐 編輯台登入</h3>
+                    <input type="password" id="admin-pass" class="field-input" placeholder="輸入密碼">
+                    <button class="forms-btn" style="width: 100%;" onclick="adminLogin()">登入</button>
+                </div>
+            </div>
+            <div id="admin-dashboard" style="display:none;"></div>
+        </div>
+    </div>
+
+    <footer style="text-align:center; padding:20px; background:var(--paper-dark); font-size:11px;">
+        桃園高中 校刊社 © 2024 ｜ 虎崗碎碎念特輯
+    </footer>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="script.js"></script>
+</body>
+</html>
