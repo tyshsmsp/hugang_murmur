@@ -1,5 +1,5 @@
 var SHEET_ID = '1HrVHWkav_i-sBEJkLbBarLTxQZI2DQOLXZAYc-D05PM'; 
-var PASS_WORD = 'taoyuan2025';
+var PASS_WORD = 'hugangmurmursmsp';
 var OK_TAG = 'ok';
 
 var API_URL = "https://docs.google.com/spreadsheets/d/" + SHEET_ID + "/gviz/tq?tqx=out:json&tq=" + encodeURIComponent("SELECT *") + "&v=" + new Date().getTime();
