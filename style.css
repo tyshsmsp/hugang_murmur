@@ -1,47 +1,141 @@
-:root {
-    --ink: #1a1008;
-    --paper: #f5efe0;
-    --paper-dark: #e8dfc8;
-    --aged: #c8b89a;
-    --red: #8b1a1a;
-    --gold: #b8860b;
-    --stamp: #6b3a2a;
+var SHEET_ID = '1HrVHWkav_i-sBEJkLbBarLTxQZI2DQOLXZAYc-D05PM'; 
+var PASS_WORD = 'taoyuan2025';
+var OK_TAG = 'ok';
+
+var API_URL = "https://docs.google.com/spreadsheets/d/" + SHEET_ID + "/gviz/tq?tqx=out:json&tq=" + encodeURIComponent("SELECT *") + "&v=" + new Date().getTime();
+
+var complaintsData = [];
+
+window.onload = function() {
+    const dateOpt = { year: 'numeric', month: 'long', day: 'numeric' };
+    document.getElementById('today-date').textContent = new Date().toLocaleDateString('zh-TW', dateOpt);
+    
+    // 啟動倒數計時
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+    
+    loadSheetData();
+};
+
+// --- 畢業倒數計時功能 ---
+function updateCountdown() {
+    // 設定畢業日期：2026年6月1日 早上9點
+    const targetDate = new Date("June 1, 2026 09:00:00").getTime();
+    const now = new Date().getTime();
+    const gap = targetDate - now;
+
+    const timerElement = document.getElementById('countdown-timer');
+    if (!timerElement) return;
+
+    if (gap <= 0) {
+        timerElement.innerHTML = "🎓 畢業快樂！";
+        return;
+    }
+
+    const second = 1000;
+    const minute = second * 60;
+    const hour = minute * 60;
+    const day = hour * 24;
+
+    const d = Math.floor(gap / day);
+    const h = Math.floor((gap % day) / hour);
+    const m = Math.floor((gap % hour) / minute);
+    const s = Math.floor((gap % minute) / second);
+
+    timerElement.innerHTML = `${d}天 ${h}時 ${m}分 ${s}秒`;
 }
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-    background: #d4c9b0;
-    background-image: repeating-linear-gradient(0deg, transparent, transparent 28px, rgba(0,0,0,0.03) 28px, rgba(0,0,0,0.03) 29px);
-    font-family: 'Noto Serif TC', serif;
-    color: var(--ink);
-    min-height: 100vh;
+
+// --- 資料抓取與 UI 更新 ---
+async function loadSheetData() {
+    try {
+        const res = await fetch(API_URL);
+        const text = await res.text();
+        const r = text.match(/google\.visualization\.Query\.setResponse\(([\s\S\w]+)\)/);
+        if (!r) throw new Error("格式錯誤");
+        
+        const jsonData = JSON.parse(r[1]);
+        const rows = jsonData.table.rows;
+        
+        complaintsData = rows.map(row => {
+            const c = row.c.map(cell => (cell && cell.v !== null) ? String(cell.v) : '');
+            const isApproved = c.some(v => v.toLowerCase().trim() === OK_TAG);
+
+            return {
+                time: c[0],
+                name: c[2] || '匿名',
+                to: c[3] || '日常',
+                msg: c[4] || '',
+                tag: c[5] || '',
+                isOk: isApproved
+            };
+        }).filter(item => item.msg !== "" && item.isOk === true);
+
+        refreshUI();
+    } catch (err) {
+        console.error("讀取失敗:", err);
+    }
 }
-body::before {
-    content: ''; position: fixed; inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
-    pointer-events: none; z-index: 1000; opacity: 0.6;
+
+function refreshUI() {
+    const wall = document.getElementById('complaints-wall');
+    if(!wall) return;
+
+    const showList = [...complaintsData].reverse();
+
+    if (showList.length === 0) {
+        wall.innerHTML = `<div style="padding:40px; text-align:center;">目前牆上還沒有通過審核的診斷書...</div>`;
+    } else {
+        wall.innerHTML = showList.map(d => {
+            const isGrad = d.tag.includes('畢業') || d.msg.includes('畢業');
+            const cardStyle = isGrad ? 'border: 2px solid var(--red); background: #fffdfd; box-shadow: 4px 4px 0px var(--red);' : '';
+            const tagStyle = isGrad ? 'background: var(--red); color: white; padding: 2px 8px; border-radius:3px;' : 'color: var(--red); font-weight:bold;';
+
+            return `
+                <div class="complaint-card" style="${cardStyle}">
+                    <div class="complaint-cat">To: ${d.to}</div>
+                    <div class="complaint-text">${d.msg}</div>
+                    <div style="${tagStyle} font-size:12px; margin-bottom:10px; display:inline-block;">${d.tag}</div>
+                    <div class="complaint-meta"><span>👤 ${d.name}</span><span>📅 ${d.time}</span></div>
+                </div>`;
+        }).join('');
+    }
+    
+    if(document.getElementById('home-total')) document.getElementById('home-total').textContent = complaintsData.length;
+    
+    const sb = document.getElementById('home-sidebar');
+    if (sb && complaintsData.length > 0) {
+        sb.innerHTML = [...complaintsData].reverse().slice(0, 3).map(d => `
+            <div class="complaint-card" style="padding:15px; font-size:13px; border-left-width:3px; margin-bottom:12px;">
+                <div style="background:var(--red); color:white; display:inline-block; padding:0 5px; font-size:10px; margin-bottom:5px;">To: ${d.to}</div>
+                <p style="color:var(--ink); font-weight:500;">${d.msg.slice(0,30)}...</p>
+            </div>`).join('');
+    }
 }
-.newspaper { max-width: 1100px; margin: 0 auto; background: var(--paper); box-shadow: 0 0 60px rgba(0,0,0,0.35); }
-.masthead { border-bottom: 4px double var(--ink); text-align: center; }
-.masthead-top { border-bottom: 1px solid var(--ink); padding: 8px 20px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
-.edition-badge { background: var(--red); color: white; padding: 2px 10px; font-family: 'Special Elite', monospace; }
-.masthead-main { font-size: clamp(52px, 8vw, 90px); font-weight: 900; line-height: 0.9; padding: 20px 0; }
-nav { background: var(--ink); display: flex; justify-content: center; border-bottom: 3px solid var(--red); }
-nav button { background: none; border: none; color: var(--paper); padding: 12px 22px; cursor: pointer; font-family: 'Noto Serif TC'; }
-nav button:hover, nav button.active { background: var(--red); }
-.content { padding: 24px 20px; min-height: 600px; }
-.page { display: none; }
-.page.active { display: block; }
-.section-head { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-.section-head::before, .section-head::after { content: ''; flex: 1; height: 2px; background: var(--ink); }
-.front-page { display: grid; grid-template-columns: 2fr 1fr; border: 1px solid var(--aged); }
-.main-story { padding: 20px; border-right: 1px solid var(--aged); }
-.sidebar { padding: 20px; background: rgba(0,0,0,0.02); }
-.complaint-card { background: white; border: 1px solid var(--aged); padding: 16px; margin-bottom: 16px; border-left: 5px solid var(--red); }
-.complaint-cat { font-size: 10px; color: var(--red); font-family: 'Special Elite'; margin-bottom: 5px; }
-.complaint-text { font-size: 14px; line-height: 1.7; margin-bottom: 10px; white-space: pre-wrap; }
-.complaint-meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--stamp); }
-.stat-num { font-size: 32px; font-weight: 900; color: var(--red); }
-.forms-box { background: white; border: 2px solid var(--ink); padding: 40px; text-align: center; }
-.forms-btn { display: inline-block; background: var(--red); color: white; padding: 12px 30px; text-decoration: none; font-weight: bold; margin-top: 15px; }
-.toast { position: fixed; bottom: 30px; right: 30px; background: var(--ink); color: white; padding: 10px 20px; display: none; }
-.field-input { width: 100%; padding: 10px; margin-top: 10px; border: 1px solid var(--aged); }
+
+function showPage(name) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+    const target = document.getElementById('page-' + name);
+    if(target) target.classList.add('active');
+    
+    const btns = document.querySelectorAll('nav button');
+    const idxMap = { 'home': 0, 'browse': 1, 'submit': 2, 'admin': 3 };
+    if (btns[idxMap[name]]) btns[idxMap[name]].classList.add('active');
+    
+    if (name === 'browse') refreshUI();
+    window.scrollTo(0,0);
+}
+
+function adminLogin() {
+    if (document.getElementById('admin-pass').value === PASS_WORD) {
+        document.getElementById('admin-login-box').style.display = 'none';
+        document.getElementById('admin-dashboard').innerHTML = `
+            <div style="text-align:center; padding:20px; background:white; border:1px solid var(--aged);">
+                <h3 style="color:green;">✅ 登入成功</h3>
+                <a href="https://docs.google.com/spreadsheets/d/${SHEET_ID}" target="_blank" style="color:var(--red);">點此前往試算表後台</a>
+            </div>`;
+        document.getElementById('admin-dashboard').style.display = 'block';
+    } else { alert('密碼錯誤！'); }
+}
+
+setInterval(loadSheetData, 30000);
