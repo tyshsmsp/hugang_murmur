@@ -33,15 +33,36 @@
         <div class="page active" id="page-home">
             <div class="front-page">
                 <div class="main-story">
-                    <h1 style="font-size: 32px; margin-bottom: 15px;">「這個學校，我有一千句話要說」</h1>
-                    <p style="line-height: 1.8;">本期校刊社特別企劃「虎崗碎碎念」，廣徵全校同學對日常校園生活的心聲。那些被鐘聲切碎的真心話，都將在此被聽見。</p>
-                    <div style="margin: 20px 0; padding: 15px; border-top: 1px solid var(--aged); border-bottom: 1px solid var(--aged); text-align: center;">
+                    <div class="special-column">
+                        <span class="column-badge">GRADUATION ISSUE</span>
+                        <h2 style="color: var(--red); font-size: 28px; margin-bottom: 10px;">🎓 專欄主題：【虎崗坡的最後一次折返】</h2>
+                        <p style="line-height: 1.6; color: var(--ink); font-weight: 600;">
+                            三年了，那條爬到腿軟的虎崗坡，終究是要走完了。<br>
+                            是誰偷偷在體育館後門刻了字？是誰在福利社搶到最後一個肉包？<br>
+                            趁著還沒領畢業證書，把最後的碎碎念留下來。
+                        </p>
+                        <div class="column-footer">
+                            🔍 推薦投稿標籤：<span style="color:var(--red)">#畢業告解</span> <span style="color:var(--red)">#再見虎崗</span>
+                        </div>
+                    </div>
+
+                    <h1 style="font-size: 24px; margin-bottom: 15px;">關於本期特輯</h1>
+                    <p style="line-height: 1.8;">本期校刊社特別企劃「畢業季專欄」，那些關於桃高的記憶，都將在此被聽見。</p>
+                    
+                    <div class="stat-box">
                         <div class="stat-num" id="home-total">0</div>
                         <div style="font-size: 12px; letter-spacing: 2px;">已刊登診斷書</div>
                     </div>
                     <button class="forms-btn" onclick="showPage('submit')">立即撰寫診斷書 →</button>
                 </div>
+
                 <div class="sidebar">
+                    <div class="countdown-container">
+                        <div style="font-size: 12px; margin-bottom: 8px; opacity: 0.8;">距離畢業典禮還有</div>
+                        <div id="countdown-timer">載入中...</div>
+                        <div style="font-size: 11px; margin-top: 8px; opacity: 0.6;">珍惜最後的碎碎念</div>
+                    </div>
+
                     <h3 style="margin-bottom: 15px; border-bottom: 1px solid var(--ink);">最新鮮的崩潰</h3>
                     <div id="home-sidebar">讀取中...</div>
                 </div>
@@ -78,8 +99,6 @@
         桃園高中 校刊社 © 2026 ｜ 虎崗碎碎念特輯
     </footer>
 </div>
-
-<div id="toast" class="toast"></div>
 
 <script src="script.js"></script>
 </body>
