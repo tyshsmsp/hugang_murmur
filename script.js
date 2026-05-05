@@ -6,41 +6,40 @@ var API_URL = "https://docs.google.com/spreadsheets/d/" + SHEET_ID + "/gviz/tq?t
 
 var complaintsData = [];
 
+// 在 window.onload 裡面加入啟動指令
 window.onload = function() {
     const dateOpt = { year: 'numeric', month: 'long', day: 'numeric' };
     document.getElementById('today-date').textContent = new Date().toLocaleDateString('zh-TW', dateOpt);
     
-    // 啟動倒數計時
-    updateCountdown();
-    setInterval(updateCountdown, 1000);
-    
+    // 確保這裡有被執行
+    startCountdown(); 
     loadSheetData();
 };
 
-// --- 畢業倒數計時功能 ---
+function startCountdown() {
+    // 立即執行一次，避免顯示載入中
+    updateCountdown(); 
+    // 每秒更新
+    setInterval(updateCountdown, 1000); 
+}
+
 function updateCountdown() {
-    // 設定畢業日期：2026年6月1日 早上9點
     const targetDate = new Date("June 1, 2026 09:00:00").getTime();
     const now = new Date().getTime();
     const gap = targetDate - now;
 
     const timerElement = document.getElementById('countdown-timer');
-    if (!timerElement) return;
+    if (!timerElement) return; // 如果找不到 ID 就跳出，不報錯
 
     if (gap <= 0) {
         timerElement.innerHTML = "🎓 畢業快樂！";
         return;
     }
 
-    const second = 1000;
-    const minute = second * 60;
-    const hour = minute * 60;
-    const day = hour * 24;
-
-    const d = Math.floor(gap / day);
-    const h = Math.floor((gap % day) / hour);
-    const m = Math.floor((gap % hour) / minute);
-    const s = Math.floor((gap % minute) / second);
+    const d = Math.floor(gap / (1000 * 60 * 60 * 24));
+    const h = Math.floor((gap % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const m = Math.floor((gap % (1000 * 60 * 60)) / (1000 * 60));
+    const s = Math.floor((gap % (1000 * 60)) / 1000);
 
     timerElement.innerHTML = `${d}天 ${h}時 ${m}分 ${s}秒`;
 }
