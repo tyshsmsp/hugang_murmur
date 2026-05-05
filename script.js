@@ -1,98 +1,76 @@
-var SHEET_ID = '1HrVHWkav_i-sBEJkLbBarLTxQZI2DQOLXZAYc-D05PM'; 
-var PASS_WORD = 'hugangmurmursmsp';
-var OK_TAG = 'ok';
-
-var API_URL = "https://docs.google.com/spreadsheets/d/" + SHEET_ID + "/gviz/tq?tqx=out:json&tq=" + encodeURIComponent("SELECT *") + "&v=" + new Date().getTime();
-
-var complaintsData = [];
-var nowFilter = '全部';
-
-window.onload = function() {
-    document.getElementById('today-date').textContent = new Date().toLocaleDateString('zh-TW');
-    loadSheetData();
-};
-
-async function loadSheetData() {
-    try {
-        const res = await fetch(API_URL);
-        const text = await res.text();
-        const r = text.match(/google\.visualization\.Query\.setResponse\(([\s\S\w]+)\)/);
-        if (!r) throw new Error("格式錯誤");
-        
-        const jsonData = JSON.parse(r[1]);
-        const rows = jsonData.table.rows;
-        
-        complaintsData = rows.map(row => {
-            const c = row.c.map(cell => (cell && cell.v !== null) ? String(cell.v) : '');
-            const isApproved = c.some(v => v.toLowerCase().trim() === OK_TAG);
-
-            return {
-                time: c[0],
-                name: c[2] || '匿名',
-                to: c[3] || '日常',
-                msg: c[4] || '',
-                tag: c[5] || '',
-                isOk: isApproved
-            };
-        }).filter(item => item.msg !== "" && item.isOk === true);
-
-        refreshUI();
-    } catch (err) {
-        console.error("讀取失敗:", err);
-    }
+:root {
+    --ink: #1a1008;
+    --paper: #f5efe0;
+    --paper-dark: #e8dfc8;
+    --aged: #c8b89a;
+    --red: #8b1a1a;
+    --gold: #b8860b;
+    --stamp: #6b3a2a;
 }
-
-function refreshUI() {
-    const wall = document.getElementById('complaints-wall');
-    if(!wall) return;
-
-    const showList = complaintsData.filter(d => {
-        if (nowFilter === '全部') return true;
-        return d.to.includes(nowFilter) || d.tag.includes(nowFilter);
-    }).reverse();
-
-    if (showList.length === 0) {
-        wall.innerHTML = `<div class="empty-state" style="padding:40px; text-align:center;">目前牆上還沒有通過審核的診斷書</div>`;
-    } else {
-        wall.innerHTML = showList.map(d => `
-            <div class="complaint-card">
-                <div class="complaint-cat">🎯 診斷對象：${d.to}</div>
-                <div class="complaint-text">${d.msg}</div>
-                <div style="color:var(--red); font-size:12px; margin-bottom:10px;">${d.tag}</div>
-                <div class="complaint-meta"><span>👤 ${d.name}</span><span>📅 ${d.time}</span></div>
-            </div>`).join('');
-    }
-    
-    document.getElementById('home-total').textContent = complaintsData.length;
-    
-    // 更新側邊欄 (前三筆)
-    const sb = document.getElementById('home-sidebar');
-    if (sb && complaintsData.length > 0) {
-        sb.innerHTML = [...complaintsData].reverse().slice(0, 3).map(d => `
-            <div class="complaint-card" style="padding:10px; font-size:13px; border-left-width:3px;">
-                <strong>To: ${d.to}</strong><br>${d.msg.slice(0,25)}...
-            </div>`).join('');
-    }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    background: #d4c9b0;
+    background-image: repeating-linear-gradient(0deg, transparent, transparent 28px, rgba(0,0,0,0.03) 28px, rgba(0,0,0,0.03) 29px);
+    font-family: 'Noto Serif TC', serif;
+    color: var(--ink);
+    min-height: 100vh;
 }
-
-function showPage(name) {
-    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
-    document.getElementById('page-' + name).classList.add('active');
-    
-    const btns = document.querySelectorAll('nav button');
-    const idxMap = { 'home': 0, 'browse': 1, 'submit': 2, 'admin': 3 };
-    if (btns[idxMap[name]]) btns[idxMap[name]].classList.add('active');
-    
-    if (name === 'browse') refreshUI();
+body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 1000; opacity: 0.6;
 }
+.newspaper { max-width: 1100px; margin: 40px auto; background: var(--paper); box-shadow: 0 0 60px rgba(0,0,0,0.35); }
+.masthead { border-bottom: 4px double var(--ink); text-align: center; }
+.masthead-top { border-bottom: 1px solid var(--ink); padding: 8px 20px; display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
+.edition-badge { background: var(--red); color: white; padding: 2px 10px; font-family: 'Special Elite', monospace; }
+.masthead-main { font-size: clamp(52px, 8vw, 90px); font-weight: 900; line-height: 0.9; padding: 20px 0; }
+nav { background: var(--ink); display: flex; justify-content: center; border-bottom: 3px solid var(--red); position: sticky; top: 0; z-index: 100; }
+nav button { background: none; border: none; color: var(--paper); padding: 12px 22px; cursor: pointer; font-family: 'Noto Serif TC'; transition: 0.3s; }
+nav button:hover, nav button.active { background: var(--red); }
 
-function adminLogin() {
-    if (document.getElementById('admin-pass').value === PASS_WORD) {
-        document.getElementById('admin-login-box').style.display = 'none';
-        document.getElementById('admin-dashboard').innerHTML = `<div style="text-align:center; padding:20px;">✅ 登入成功，請去試算表填寫 ${OK_TAG}</div>`;
-        document.getElementById('admin-dashboard').style.display = 'block';
-    } else { alert('密碼錯誤！'); }
+/* 佈局與內容 */
+.content { padding: 40px; min-height: 600px; }
+.page { display: none; }
+.page.active { display: block; }
+.section-head { display: flex; align-items: center; gap: 12px; margin-bottom: 30px; }
+.section-head::before, .section-head::after { content: ''; flex: 1; height: 2px; background: var(--ink); }
+.front-page { display: grid; grid-template-columns: 2.5fr 1fr; gap: 30px; }
+.main-story { border-right: 1px solid var(--aged); padding-right: 30px; }
+
+/* 專欄看板樣式 */
+.special-column { background: #fff; border: 2px solid var(--red); padding: 25px; margin-bottom: 25px; position: relative; box-shadow: 5px 5px 0px var(--red); }
+.column-badge { position: absolute; top: -12px; right: 20px; background: var(--ink); color: white; padding: 2px 12px; font-family: 'Special Elite'; font-size: 14px; }
+.column-footer { margin-top: 15px; font-size: 13px; color: var(--stamp); border-top: 1px dashed var(--aged); padding-top: 10px; }
+
+/* 倒數計時容器 */
+.countdown-container { background: var(--ink); color: var(--paper); padding: 18px; margin-bottom: 20px; text-align: center; border-radius: 2px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+#countdown-timer { font-size: 22px; font-family: 'Special Elite'; color: var(--gold); letter-spacing: 1px; font-weight: bold; }
+
+/* 碎碎念卡片 */
+.complaint-card { background: white; border: 1px solid var(--aged); padding: 20px; margin-bottom: 20px; border-left: 5px solid var(--red); transition: 0.3s; }
+.complaint-card:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+.complaint-cat { 
+    display: inline-block; 
+    font-size: 11px; 
+    background: var(--ink); /* 深色背景 */
+    color: var(--paper);    /* 淺色文字，加強對比 */
+    padding: 2px 10px; 
+    font-family: 'Special Elite'; 
+    margin-bottom: 12px; 
+    letter-spacing: 1px;
 }
+.complaint-text { font-size: 16px; line-height: 1.8; margin-bottom: 15px; white-space: pre-wrap; color: #111; }
+.complaint-meta { display: flex; justify-content: space-between; font-size: 11px; color: var(--stamp); border-top: 1px solid #eee; padding-top: 10px; }
 
-setInterval(loadSheetData, 30000);
+/* 統計與按鈕 */
+.stat-box { margin: 20px 0; padding: 15px; border-top: 1px solid var(--aged); border-bottom: 1px solid var(--aged); text-align: center; }
+.stat-num { font-size: 48px; font-weight: 900; color: var(--red); font-family: 'Special Elite'; }
+.forms-btn { display: inline-block; background: var(--red); color: white; padding: 14px 35px; text-decoration: none; font-weight: bold; margin-top: 20px; transition: 0.3s; border: none; cursor: pointer; }
+.forms-btn:hover { background: var(--ink); transform: scale(1.05); }
+
+@media (max-width: 768px) {
+    .front-page { grid-template-columns: 1fr; }
+    .main-story { border-right: none; padding-right: 0; }
+    .newspaper { margin: 0; }
+}
