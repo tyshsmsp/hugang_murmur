@@ -59,8 +59,8 @@ async function loadSheetData() {
         
         const parsedRows = rows.map(row => {
             const c = row.c.map(cell => (cell && cell.v !== null) ? String(cell.v) : '');
-            // 安全修正：僅檢查 Column G (Index 6) 的審核欄位
-            const isApproved = c[6] && c[6].toLowerCase().trim() === OK_TAG;
+            // 安全修正：僅檢查 Column H (Index 7) 的審核欄位
+            const isApproved = c[7] && c[7].toLowerCase().trim() === OK_TAG;
 
             return {
                 time: c[0],
@@ -69,8 +69,8 @@ async function loadSheetData() {
                 msg: c[4] || '',
                 tag: c[5] || '',
                 isOk: isApproved,
-                likes: parseInt(c[7]) || 0,
-                hearts: parseInt(c[8]) || 0
+                likes: parseInt(c[8]) || 0,
+                hearts: parseInt(c[9]) || 0
             };
         }).filter(item => item.msg !== "");
 
