@@ -34,36 +34,36 @@
             <div class="front-page">
                 <div class="main-story">
                     <div class="special-column">
-                        <span class="column-badge">GRADUATION ISSUE</span>
-                        <h2 style="color: var(--red); font-size: 28px; margin-bottom: 10px;">🎓 專欄主題：【虎崗坡的最後一次折返】</h2>
+                        <span class="column-badge">SURVIVAL GUIDE</span>
+                        <h2 style="color: var(--red); font-size: 28px; margin-bottom: 10px;">🎒 專欄主題：【虎崗生存指南：學長姐沒說的避坑秘笈】</h2>
                         <p style="line-height: 1.6; color: var(--ink); font-weight: 600;">
-                            三年了，那條等公車等到腳軟的成功路，終究是要走完了。<br>
-                            是誰偷偷在中正堂側門刻了字？是誰在OK搶到最後一個蛋塔？<br>
-                            趁著還沒領畢業證書，把最後的碎碎念留下來。
+                            成功路走九遍，不如聽學長姐碎碎念一遍。<br>
+                            虎崗坡到底怎麼爬比較輕鬆？OK超商的熱門食物幾點會被搶光？社團跟課業要怎麼兩全？<br>
+                            把那些課本上沒寫的生存法則通通留下來，給新一代的桃高人！
                         </p>
                         <div class="column-footer">
-                            🔍 推薦投稿標籤：<span style="color:var(--red)">#畢業告解</span> <span style="color:var(--red)">#再見虎崗</span>
+                            🔍 推薦投稿標籤：<span style="color:var(--red)">#虎崗生存法則</span> <span style="color:var(--red)">#新生避坑指南</span>
                         </div>
                     </div>
 
                     <h1 style="font-size: 24px; margin-bottom: 15px;">關於本期特輯</h1>
-                    <p style="line-height: 1.8;">本期虎崗碎碎念主題「畢業季專欄」，那些關於桃高的記憶，都將在此被聽見。</p>
+                    <p style="line-height: 1.8;">本期虎崗碎碎念主題為「新生避坑與生存指南」，讓學長姐的血淚經驗，成為你爬上坡的最強裝備！</p>
                     
                     <div class="stat-box">
                         <div class="stat-num" id="home-total">0</div>
-                        <div style="font-size: 12px; letter-spacing: 2px;">已刊登診斷書</div>
+                        <div style="font-size: 12px; letter-spacing: 2px;">已刊登生存指南</div>
                     </div>
-                    <button class="forms-btn" onclick="showPage('submit')">立即撰寫診斷書 →</button>
+                    <button class="forms-btn" onclick="showPage('submit')">立即撰寫指南 →</button>
                 </div>
 
                 <div class="sidebar">
                     <div class="countdown-container">
-                        <div style="font-size: 12px; margin-bottom: 8px; opacity: 0.8;">距離畢業典禮還有</div>
+                        <div style="font-size: 12px; margin-bottom: 8px; opacity: 0.8;">距離新學期開學還有</div>
                         <div id="countdown-timer">載入中...</div>
-                        <div style="font-size: 11px; margin-top: 8px; opacity: 0.6;">珍惜最後的碎碎念</div>
+                        <div style="font-size: 11px; margin-top: 8px; opacity: 0.6;">先看看指南做好準備！</div>
                     </div>
 
-                    <h3 style="margin-bottom: 15px; border-bottom: 1px solid var(--ink);">最新鮮的崩潰</h3>
+                    <h3 style="margin-bottom: 15px; border-bottom: 1px solid var(--ink);">最新避坑撇步</h3>
                     <div id="home-sidebar">讀取中...</div>
                 </div>
             </div>
@@ -87,7 +87,7 @@
             <div id="admin-login-box">
                 <div style="max-width: 300px; margin: 40px auto; text-align: center; border: 2px solid var(--ink); padding: 20px; background: white;">
                     <h3>🔐 編輯台登入</h3>
-                    <input type="password" id="admin-pass" class="field-input" placeholder="輸入密碼">
+                    <input type="password" id="admin-pass" class="field-input" placeholder="輸入密碼" onkeypress="if(event.key === 'Enter') adminLogin()">
                     <button class="forms-btn" style="width: 100%;" onclick="adminLogin()">登入</button>
                 </div>
             </div>
