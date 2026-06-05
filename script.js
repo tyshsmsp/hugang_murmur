@@ -196,7 +196,7 @@ async function handleReaction(rowNum, type) {
         try {
             await fetch(gasUrl, {
                 method: 'POST',
-                mode: 'cors',
+                redirect: 'follow',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ action: type, rowNum: rowNum })
             });
@@ -300,7 +300,7 @@ async function setPostStatus(rowNum, action) {
     try {
         const res = await fetch(gasUrl, {
             method: 'POST',
-            mode: 'cors',
+            redirect: 'follow',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ action: action, rowNum: rowNum, pass: PASS_WORD })
         });
