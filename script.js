@@ -298,18 +298,26 @@ async function setPostStatus(rowNum, action) {
     btn.textContent = "傳送中...";
     
     try {
-        const res = await fetch(gasUrl, {
+        // 使用 no-cors 模式確保請求一定能送出（GAS 會執行，但瀏覽器無法讀取回應）
+        await fetch(gasUrl, {
             method: 'POST',
-            redirect: 'follow',
+            mode: 'no-cors',
             headers: { 'Content-Type': 'text/plain;charset=utf-8' },
             body: JSON.stringify({ action: action, rowNum: rowNum, pass: PASS_WORD })
         });
-        const result = await res.json();
-        if (result.success) {
-            alert(action === 'approve' ? "審核成功，已發布！" : "已下架該投稿！");
-            await loadSheetData();
+
+        // 等待 GAS 寫入完成後重新抓取資料來驗證結果
+        btn.textContent = "驗證中...";
+        await new Promise(r => setTimeout(r, 2000));
+        await loadSheetData();
+
+        // 確認試算表是否有變化
+        const updated = allSubmissionsData.find(d => d.rowNum === rowNum);
+        const succeeded = updated && (action === 'approve' ? updated.isOk === true : updated.isOk === false);
+        if (succeeded) {
+            alert(action === 'approve' ? "✅ 審核成功，已發布！" : "✅ 已下架該投稿！");
         } else {
-            alert("操作失敗: " + (result.error || "未知錯誤"));
+            alert("⚠️ 請求已送出，但試算表尚未更新。請確認 Apps Script 部署設定是否正確（執行身分：我；存取權：所有人）。");
         }
     } catch (err) {
         console.error("更新審核狀態失敗:", err);
