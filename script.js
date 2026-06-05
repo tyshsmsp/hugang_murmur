@@ -1,10 +1,12 @@
 var SHEET_ID = '1HrVHWkav_i-sBEJkLbBarLTxQZI2DQOLXZAYc-D05PM'; 
 var PASS_WORD = 'hugangmurmursmsp';
 var OK_TAG = 'ok';
+var GAS_API_URL = ''; // 貼上部署好的 Google Apps Script 網頁應用程式 URL
 
 var API_URL = "https://docs.google.com/spreadsheets/d/" + SHEET_ID + "/gviz/tq?tqx=out:json&tq=" + encodeURIComponent("SELECT *") + "&v=" + new Date().getTime();
 
 var complaintsData = [];
+var allSubmissionsData = []; // 用於後台管理顯示所有投稿
 
 // 在 window.onload 裡面加入啟動指令
 window.onload = function() {
@@ -24,7 +26,7 @@ function startCountdown() {
 }
 
 function updateCountdown() {
-    const targetDate = new Date("June 1, 2026 09:00:00").getTime();
+    const targetDate = new Date("September 1, 2026 09:00:00").getTime();
     const now = new Date().getTime();
     const gap = targetDate - now;
 
@@ -32,7 +34,7 @@ function updateCountdown() {
     if (!timerElement) return; // 如果找不到 ID 就跳出，不報錯
 
     if (gap <= 0) {
-        timerElement.innerHTML = "🎓 畢業快樂！";
+        timerElement.innerHTML = "🎒 新學期開始囉！";
         return;
     }
 
@@ -55,9 +57,10 @@ async function loadSheetData() {
         const jsonData = JSON.parse(r[1]);
         const rows = jsonData.table.rows;
         
-        complaintsData = rows.map(row => {
+        const parsedRows = rows.map(row => {
             const c = row.c.map(cell => (cell && cell.v !== null) ? String(cell.v) : '');
-            const isApproved = c.some(v => v.toLowerCase().trim() === OK_TAG);
+            // 安全修正：僅檢查 Column G (Index 6) 的審核欄位
+            const isApproved = c[6] && c[6].toLowerCase().trim() === OK_TAG;
 
             return {
                 time: c[0],
@@ -65,9 +68,14 @@ async function loadSheetData() {
                 to: c[3] || '日常',
                 msg: c[4] || '',
                 tag: c[5] || '',
-                isOk: isApproved
+                isOk: isApproved,
+                likes: parseInt(c[7]) || 0,
+                hearts: parseInt(c[8]) || 0
             };
-        }).filter(item => item.msg !== "" && item.isOk === true);
+        }).filter(item => item.msg !== "");
+
+        allSubmissionsData = parsedRows;
+        complaintsData = parsedRows.filter(item => item.isOk === true);
 
         refreshUI();
     } catch (err) {
@@ -82,18 +90,36 @@ function refreshUI() {
     const showList = [...complaintsData].reverse();
 
     if (showList.length === 0) {
-        wall.innerHTML = `<div style="padding:40px; text-align:center;">目前牆上還沒有通過審核的診斷書...</div>`;
+        wall.innerHTML = `<div style="padding:40px; text-align:center;">目前牆上還沒有通過審核的指南...</div>`;
     } else {
         wall.innerHTML = showList.map(d => {
-            const isGrad = d.tag.includes('畢業') || d.msg.includes('畢業');
-            const cardStyle = isGrad ? 'border: 2px solid var(--red); background: #fffdfd; box-shadow: 4px 4px 0px var(--red);' : '';
-            const tagStyle = isGrad ? 'background: var(--red); color: white; padding: 2px 8px; border-radius:3px;' : 'color: var(--red); font-weight:bold;';
+            const isSurvival = d.tag.includes('生存') || d.msg.includes('生存') || d.tag.includes('避坑') || d.msg.includes('避坑');
+            const cardStyle = isSurvival ? 'border: 2px solid var(--red); background: #fffdfd; box-shadow: 4px 4px 0px var(--red);' : '';
+            const tagStyle = isSurvival ? 'background: var(--red); color: white; padding: 2px 8px; border-radius:3px;' : 'color: var(--red); font-weight:bold;';
+
+            // 檢查本地是否已點讚/點愛心
+            const likedList = JSON.parse(localStorage.getItem('liked_posts') || '[]');
+            const heartedList = JSON.parse(localStorage.getItem('hearted_posts') || '[]');
+            const isLiked = likedList.includes(d.time);
+            const isHearted = heartedList.includes(d.time);
 
             return `
                 <div class="complaint-card" style="${cardStyle}">
                     <div class="complaint-cat">To: ${d.to}</div>
                     <div class="complaint-text">${d.msg}</div>
-                    <div style="${tagStyle} font-size:12px; margin-bottom:10px; display:inline-block;">${d.tag}</div>
+                    <div style="margin-bottom:12px;">
+                        <span style="${tagStyle} font-size:12px; display:inline-block;">${d.tag}</span>
+                    </div>
+                    
+                    <div class="reactions-bar">
+                        <button class="reaction-btn ${isLiked ? 'active' : ''}" onclick="handleReaction('${d.time}', 'like')">
+                            👍 <span class="reaction-count">${d.likes}</span>
+                        </button>
+                        <button class="reaction-btn ${isHearted ? 'active' : ''}" onclick="handleReaction('${d.time}', 'heart')">
+                            ❤️ <span class="reaction-count">${d.hearts}</span>
+                        </button>
+                    </div>
+
                     <div class="complaint-meta"><span>👤 ${d.name}</span><span>📅 ${d.time}</span></div>
                 </div>`;
         }).join('');
@@ -106,8 +132,14 @@ function refreshUI() {
         sb.innerHTML = [...complaintsData].reverse().slice(0, 3).map(d => `
             <div class="complaint-card" style="padding:15px; font-size:13px; border-left-width:3px; margin-bottom:12px;">
                 <div style="background:var(--red); color:white; display:inline-block; padding:0 5px; font-size:10px; margin-bottom:5px;">To: ${d.to}</div>
-                <p style="color:var(--ink); font-weight:500;">${d.msg.slice(0,30)}...</p>
+                <p style="color:var(--ink); font-weight:500;">${d.msg.length > 30 ? d.msg.slice(0,30) + '...' : d.msg}</p>
             </div>`).join('');
+    }
+
+    // 若後台儀表板目前顯示中，同步更新它
+    const dashboard = document.getElementById('admin-dashboard');
+    if (dashboard && dashboard.style.display === 'block') {
+        renderAdminDashboard();
     }
 }
 
@@ -128,13 +160,170 @@ function showPage(name) {
 function adminLogin() {
     if (document.getElementById('admin-pass').value === PASS_WORD) {
         document.getElementById('admin-login-box').style.display = 'none';
-        document.getElementById('admin-dashboard').innerHTML = `
-            <div style="text-align:center; padding:20px; background:white; border:1px solid var(--aged);">
-                <h3 style="color:green;">✅ 登入成功</h3>
-                <a href="https://docs.google.com/spreadsheets/d/${SHEET_ID}" target="_blank" style="color:var(--red);">點此前往試算表後台</a>
-            </div>`;
-        document.getElementById('admin-dashboard').style.display = 'block';
+        renderAdminDashboard();
     } else { alert('密碼錯誤！'); }
+}
+
+// --- 新增功能：按讚/按愛心處理 ---
+async function handleReaction(timestamp, type) {
+    const key = type === 'like' ? 'liked_posts' : 'hearted_posts';
+    const list = JSON.parse(localStorage.getItem(key) || '[]');
+    
+    if (list.includes(timestamp)) {
+        alert("你已經點過囉！");
+        return;
+    }
+    
+    // 樂觀更新前端資料
+    const item = allSubmissionsData.find(d => d.time === timestamp);
+    if (item) {
+        if (type === 'like') item.likes++;
+        else item.hearts++;
+    }
+    
+    list.push(timestamp);
+    localStorage.setItem(key, JSON.stringify(list));
+    refreshUI();
+    
+    // 呼叫 GAS 後台 API 同步
+    const gasUrl = localStorage.getItem('gas_api_url') || GAS_API_URL;
+    if (gasUrl) {
+        try {
+            await fetch(gasUrl, {
+                method: 'POST',
+                mode: 'cors',
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8' // 防止 GAS 觸發 OPTIONS 預檢請求
+                },
+                body: JSON.stringify({
+                    action: type,
+                    timestamp: timestamp
+                })
+            });
+        } catch (err) {
+            console.error("傳送按讚失敗:", err);
+        }
+    }
+}
+
+// --- 新增功能：後台儀表板渲染與操作 ---
+function renderAdminDashboard() {
+    const dashboard = document.getElementById('admin-dashboard');
+    if (!dashboard) return;
+    
+    dashboard.style.display = 'block';
+    
+    const storedGasUrl = localStorage.getItem('gas_api_url') || GAS_API_URL || '';
+    
+    let html = `
+        <div class="admin-header">
+            <h3 style="margin-bottom:10px;">📊 編輯台管理系統</h3>
+            <p style="font-size:13px; line-height:1.5; margin-bottom:15px; color:#555;">
+                在這裡您可以審核所有投稿。請部署 Google Apps Script 後將「網頁應用程式 URL」填入下方以啟用線上同步功能。
+            </p>
+            <div class="admin-config">
+                <input type="text" id="admin-gas-url" placeholder="請貼上您的 Google Apps Script Web App URL" value="${storedGasUrl}" style="flex:1; padding: 8px;">
+                <button class="forms-btn" style="margin: 0; padding: 8px 15px; font-size: 13px;" onclick="saveGasUrl()">儲存設定</button>
+            </div>
+        </div>
+    `;
+    
+    if (!storedGasUrl) {
+        html += `
+            <div class="admin-guide">
+                <h4>💡 如何啟用線上審核與按讚功能？</h4>
+                <ol>
+                    <li>在您的 Google 試算表點選「擴充功能」->「Apps Script」。</li>
+                    <li>將專案根目錄下的 <code>gas_backend.js</code> 檔案內容覆蓋貼上並儲存。</li>
+                    <li>點選右上角「部署」->「新增部署」，選取「網頁應用程式」，設定「執行身分」為「我」，「誰有權限存取」設為「所有人」。</li>
+                    <li>部署完成後複製「網頁應用程式 URL」，並貼到上方輸入框中點選儲存。</li>
+                </ol>
+            </div>
+        `;
+    }
+    
+    const list = [...allSubmissionsData].reverse();
+    if (list.length === 0) {
+        html += `<div style="padding:40px; text-align:center; background:white; border:1px solid var(--aged);">目前沒有任何投稿資料。</div>`;
+    } else {
+        html += `
+            <div class="admin-list">
+                ${list.map(d => {
+                    const statusText = d.isOk ? '✅ 已發布' : '⏳ 待審核';
+                    const statusClass = d.isOk ? 'approved' : 'pending';
+                    const actionBtn = d.isOk 
+                        ? `<button class="admin-btn reject" onclick="setPostStatus('${d.time}', 'reject')">下架/隱藏</button>`
+                        : `<button class="admin-btn approve" onclick="setPostStatus('${d.time}', 'approve')">核准發布</button>`;
+                        
+                    return `
+                        <div class="admin-card">
+                            <div class="admin-card-header">
+                                <span class="admin-status ${statusClass}">${statusText}</span>
+                                <span style="font-size:11px; color:var(--stamp);">📅 ${d.time}</span>
+                            </div>
+                            <div style="font-size: 13px; font-weight: bold; margin-bottom: 5px;">To: ${d.to} | 👤 ${d.name}</div>
+                            <div class="admin-card-msg">${d.msg}</div>
+                            <div style="font-size: 11px; color:var(--stamp); margin-bottom: 10px;">🏷️ 標籤：${d.tag || '無'}</div>
+                            <div style="font-size: 11px; margin-bottom: 10px; font-weight:600;">👍 讚：${d.likes} | ❤️ 愛心：${d.hearts}</div>
+                            <div class="admin-card-actions">
+                                ${actionBtn}
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+    }
+    
+    dashboard.innerHTML = html;
+}
+
+function saveGasUrl() {
+    const url = document.getElementById('admin-gas-url').value.trim();
+    localStorage.setItem('gas_api_url', url);
+    alert('設定已儲存！');
+    renderAdminDashboard();
+}
+
+async function setPostStatus(timestamp, action) {
+    const gasUrl = localStorage.getItem('gas_api_url') || GAS_API_URL;
+    if (!gasUrl) {
+        alert("請先在上方設定 Google Apps Script URL 才能變更審核狀態！");
+        return;
+    }
+    
+    const btn = event.target;
+    const oldText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "傳送中...";
+    
+    try {
+        const res = await fetch(gasUrl, {
+            method: 'POST',
+            mode: 'cors',
+            headers: {
+                'Content-Type': 'text/plain;charset=utf-8' // 防止 GAS 預檢請求
+            },
+            body: JSON.stringify({
+                action: action,
+                timestamp: timestamp,
+                pass: PASS_WORD
+            })
+        });
+        const result = await res.json();
+        if (result.success) {
+            alert(action === 'approve' ? "審核成功，已發布！" : "已下架該投稿！");
+            await loadSheetData();
+        } else {
+            alert("操作失敗: " + (result.error || "未知錯誤"));
+        }
+    } catch (err) {
+        console.error("更新審核狀態失敗:", err);
+        alert("連線後台失敗，請確認 Apps Script 部署網址是否正確。");
+    } finally {
+        btn.disabled = false;
+        btn.textContent = oldText;
+    }
 }
 
 setInterval(loadSheetData, 30000);
