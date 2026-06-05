@@ -57,13 +57,18 @@ async function loadSheetData() {
         const jsonData = JSON.parse(r[1]);
         const rows = jsonData.table.rows;
         
-        const parsedRows = rows.map(row => {
+        const parsedRows = rows.map((row, rIdx) => {
             const c = row.c.map(cell => (cell && cell.v !== null) ? String(cell.v) : '');
             // 安全修正：僅檢查 Column H (Index 7) 的審核欄位
             const isApproved = c[7] && c[7].toLowerCase().trim() === OK_TAG;
 
+            // gviz 自動跳過標頭列，回傳純資料列
+            // 試算表實際列號 = gviz 索引 + 2（+1 指標頭列，+1 因為 GAS 從 1 開始計）
+            const rowNum = rIdx + 2;
+
             return {
                 time: c[0],
+                rowNum: rowNum,
                 name: c[2] || '匿名',
                 to: c[3] || '日常',
                 msg: c[4] || '',
@@ -112,10 +117,10 @@ function refreshUI() {
                     </div>
                     
                     <div class="reactions-bar">
-                        <button class="reaction-btn ${isLiked ? 'active' : ''}" onclick="handleReaction('${d.time}', 'like')">
+                        <button class="reaction-btn ${isLiked ? 'active' : ''}" onclick="handleReaction(${d.rowNum}, 'like')">
                             👍 <span class="reaction-count">${d.likes}</span>
                         </button>
-                        <button class="reaction-btn ${isHearted ? 'active' : ''}" onclick="handleReaction('${d.time}', 'heart')">
+                        <button class="reaction-btn ${isHearted ? 'active' : ''}" onclick="handleReaction(${d.rowNum}, 'heart')">
                             ❤️ <span class="reaction-count">${d.hearts}</span>
                         </button>
                     </div>
@@ -165,23 +170,23 @@ function adminLogin() {
 }
 
 // --- 新增功能：按讚/按愛心處理 ---
-async function handleReaction(timestamp, type) {
+async function handleReaction(rowNum, type) {
     const key = type === 'like' ? 'liked_posts' : 'hearted_posts';
     const list = JSON.parse(localStorage.getItem(key) || '[]');
     
-    if (list.includes(timestamp)) {
+    if (list.includes(rowNum)) {
         alert("你已經點過囉！");
         return;
     }
     
     // 樂觀更新前端資料
-    const item = allSubmissionsData.find(d => d.time === timestamp);
+    const item = allSubmissionsData.find(d => d.rowNum === rowNum);
     if (item) {
         if (type === 'like') item.likes++;
         else item.hearts++;
     }
     
-    list.push(timestamp);
+    list.push(rowNum);
     localStorage.setItem(key, JSON.stringify(list));
     refreshUI();
     
@@ -192,13 +197,8 @@ async function handleReaction(timestamp, type) {
             await fetch(gasUrl, {
                 method: 'POST',
                 mode: 'cors',
-                headers: {
-                    'Content-Type': 'text/plain;charset=utf-8' // 防止 GAS 觸發 OPTIONS 預檢請求
-                },
-                body: JSON.stringify({
-                    action: type,
-                    timestamp: timestamp
-                })
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: type, rowNum: rowNum })
             });
         } catch (err) {
             console.error("傳送按讚失敗:", err);
@@ -252,8 +252,8 @@ function renderAdminDashboard() {
                     const statusText = d.isOk ? '✅ 已發布' : '⏳ 待審核';
                     const statusClass = d.isOk ? 'approved' : 'pending';
                     const actionBtn = d.isOk 
-                        ? `<button class="admin-btn reject" onclick="setPostStatus('${d.time}', 'reject')">下架/隱藏</button>`
-                        : `<button class="admin-btn approve" onclick="setPostStatus('${d.time}', 'approve')">核准發布</button>`;
+                        ? `<button class="admin-btn reject" onclick="setPostStatus(${d.rowNum}, 'reject')">下架/隱藏</button>`
+                        : `<button class="admin-btn approve" onclick="setPostStatus(${d.rowNum}, 'approve')">核准發布</button>`;
                         
                     return `
                         <div class="admin-card">
@@ -285,7 +285,7 @@ function saveGasUrl() {
     renderAdminDashboard();
 }
 
-async function setPostStatus(timestamp, action) {
+async function setPostStatus(rowNum, action) {
     const gasUrl = localStorage.getItem('gas_api_url') || GAS_API_URL;
     if (!gasUrl) {
         alert("請先在上方設定 Google Apps Script URL 才能變更審核狀態！");
@@ -301,14 +301,8 @@ async function setPostStatus(timestamp, action) {
         const res = await fetch(gasUrl, {
             method: 'POST',
             mode: 'cors',
-            headers: {
-                'Content-Type': 'text/plain;charset=utf-8' // 防止 GAS 預檢請求
-            },
-            body: JSON.stringify({
-                action: action,
-                timestamp: timestamp,
-                pass: PASS_WORD
-            })
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: action, rowNum: rowNum, pass: PASS_WORD })
         });
         const result = await res.json();
         if (result.success) {
