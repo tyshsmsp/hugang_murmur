@@ -1,7 +1,7 @@
 var SHEET_ID = '1HrVHWkav_i-sBEJkLbBarLTxQZI2DQOLXZAYc-D05PM'; 
 var PASS_WORD = 'hugangmurmursmsp';
 var OK_TAG = 'ok';
-var GAS_API_URL = 'https://script.google.com/macros/library/d/1QTnZCJB9diYrRtRgdgalkOcsOoukYYnjoOwBciTI8hNxU7oy6IWAZbYq/5'; // ⚠️ 請在此處貼上您部署好的 Google Apps Script 網頁應用程式 URL ⚠️
+var GAS_API_URL = 'https://script.google.com/macros/s/AKfycbz-BLzgNqhlQ4YV-ZTEVuyiQZk77X2_i47hJnaYzSQnLzpw8uS8SnDpqf1X8UzGxvch/exec'; // ⚠️ 請在此處貼上您部署好的 Google Apps Script 網頁應用程式 URL ⚠️
 
 var API_URL = "https://docs.google.com/spreadsheets/d/" + SHEET_ID + "/gviz/tq?tqx=out:json&tq=" + encodeURIComponent("SELECT *") + "&v=" + new Date().getTime();
 
