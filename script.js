@@ -105,8 +105,8 @@ function refreshUI() {
             // 檢查本地是否已點讚/點愛心
             const likedList = JSON.parse(localStorage.getItem('liked_posts') || '[]');
             const heartedList = JSON.parse(localStorage.getItem('hearted_posts') || '[]');
-            const isLiked = likedList.includes(d.time);
-            const isHearted = heartedList.includes(d.time);
+            const isLiked = likedList.includes(d.rowNum);
+            const isHearted = heartedList.includes(d.rowNum);
 
             return `
                 <div class="complaint-card" style="${cardStyle}">
@@ -125,7 +125,7 @@ function refreshUI() {
                         </button>
                     </div>
 
-                    <div class="complaint-meta"><span>👤 ${d.name}</span><span>📅 ${d.time}</span></div>
+                    <div class="complaint-meta"><span>👤 ${d.name}</span><span>📅 ${formatTimestamp(d.time)}</span></div>
                 </div>`;
         }).join('');
     }
@@ -196,7 +196,7 @@ async function handleReaction(rowNum, type) {
         try {
             await fetch(gasUrl, {
                 method: 'POST',
-                redirect: 'follow',
+                mode: 'no-cors',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ action: type, rowNum: rowNum })
             });
@@ -252,14 +252,14 @@ function renderAdminDashboard() {
                     const statusText = d.isOk ? '✅ 已發布' : '⏳ 待審核';
                     const statusClass = d.isOk ? 'approved' : 'pending';
                     const actionBtn = d.isOk 
-                        ? `<button class="admin-btn reject" onclick="setPostStatus(${d.rowNum}, 'reject')">下架/隱藏</button>`
-                        : `<button class="admin-btn approve" onclick="setPostStatus(${d.rowNum}, 'approve')">核准發布</button>`;
+                        ? `<button class="admin-btn reject" onclick="setPostStatus(this, ${d.rowNum}, 'reject')">下架/隱藏</button>`
+                        : `<button class="admin-btn approve" onclick="setPostStatus(this, ${d.rowNum}, 'approve')">核准發布</button>`;
                         
                     return `
                         <div class="admin-card">
                             <div class="admin-card-header">
                                 <span class="admin-status ${statusClass}">${statusText}</span>
-                                <span style="font-size:11px; color:var(--stamp);">📅 ${d.time}</span>
+                                <span style="font-size:11px; color:var(--stamp);">📅 ${formatTimestamp(d.time)}</span>
                             </div>
                             <div style="font-size: 13px; font-weight: bold; margin-bottom: 5px;">To: ${d.to} | 👤 ${d.name}</div>
                             <div class="admin-card-msg">${d.msg}</div>
@@ -285,14 +285,12 @@ function saveGasUrl() {
     renderAdminDashboard();
 }
 
-async function setPostStatus(rowNum, action) {
+async function setPostStatus(btn, rowNum, action) {
     const gasUrl = localStorage.getItem('gas_api_url') || GAS_API_URL;
     if (!gasUrl) {
         alert("請先在上方設定 Google Apps Script URL 才能變更審核狀態！");
         return;
     }
-    
-    const btn = event.target;
     const oldText = btn.textContent;
     btn.disabled = true;
     btn.textContent = "傳送中...";
@@ -329,3 +327,18 @@ async function setPostStatus(rowNum, action) {
 }
 
 setInterval(loadSheetData, 30000);
+
+// 格式化 Google Sheets 傳回的 Date(yyyy,m,d,h,min,s) 字串為易讀格式
+function formatTimestamp(timeStr) {
+    if (!timeStr) return '';
+    const match = timeStr.match(/Date\((\d+),(\d+),(\d+),?(\d+)?,?(\d+)?,?(\d+)?\)/);
+    if (match) {
+        const y = match[1];
+        const m = String(parseInt(match[2]) + 1).padStart(2, '0'); // JavaScript Month 是 0-based
+        const d = String(parseInt(match[3])).padStart(2, '0');
+        const h = match[4] ? String(parseInt(match[4])).padStart(2, '0') : '00';
+        const min = match[5] ? String(parseInt(match[5])).padStart(2, '0') : '00';
+        return `${y}-${m}-${d} ${h}:${min}`;
+    }
+    return timeStr;
+}
