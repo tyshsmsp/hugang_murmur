@@ -1,7 +1,7 @@
 var SHEET_ID = '1HrVHWkav_i-sBEJkLbBarLTxQZI2DQOLXZAYc-D05PM'; 
 var PASS_WORD = 'hugangmurmursmsp';
 var OK_TAG = 'ok';
-var GAS_API_URL = ''; // 貼上部署好的 Google Apps Script 網頁應用程式 URL
+var GAS_API_URL = 'https://script.google.com/macros/library/d/1QTnZCJB9diYrRtRgdgalkOcsOoukYYnjoOwBciTI8hNxU7oy6IWAZbYq/5'; // ⚠️ 請在此處貼上您部署好的 Google Apps Script 網頁應用程式 URL ⚠️
 
 var API_URL = "https://docs.google.com/spreadsheets/d/" + SHEET_ID + "/gviz/tq?tqx=out:json&tq=" + encodeURIComponent("SELECT *") + "&v=" + new Date().getTime();
 
@@ -69,14 +69,24 @@ async function loadSheetData() {
             let likes = parseInt(c[8]) || 0;
             let hearts = parseInt(c[9]) || 0;
 
-            // 樂觀更新自動校正：如果本地有按讚/愛心紀錄，但 Sheets 讚數仍為 0，則強制顯示為 1
             const likedList = JSON.parse(localStorage.getItem('liked_posts') || '[]');
             const heartedList = JSON.parse(localStorage.getItem('hearted_posts') || '[]');
-            if (likedList.includes(rowNum) && likes < 1) {
-                likes = 1;
+            const baselines = JSON.parse(localStorage.getItem('reaction_baselines') || '{}');
+
+            // 樂觀校正：如果本地點過讚，且 Google Sheets 讀回來的數值還小於或等於點讚前的基準值，則顯示為基準值 + 1
+            if (likedList.includes(rowNum)) {
+                const baseline = baselines[rowNum] ? baselines[rowNum].likesBefore : 0;
+                if (likes <= baseline) {
+                    likes = baseline + 1;
+                }
             }
-            if (heartedList.includes(rowNum) && hearts < 1) {
-                hearts = 1;
+
+            // 樂觀校正：愛心
+            if (heartedList.includes(rowNum)) {
+                const baseline = baselines[rowNum] ? baselines[rowNum].heartsBefore : 0;
+                if (hearts <= baseline) {
+                    hearts = baseline + 1;
+                }
             }
 
             return {
@@ -192,11 +202,21 @@ async function handleReaction(rowNum, type) {
         return;
     }
     
-    // 樂觀更新前端資料
+    // 樂觀更新前端資料並儲存基準值
     const item = allSubmissionsData.find(d => d.rowNum === rowNum);
     if (item) {
-        if (type === 'like') item.likes++;
-        else item.hearts++;
+        const baselines = JSON.parse(localStorage.getItem('reaction_baselines') || '{}');
+        if (!baselines[rowNum]) {
+            baselines[rowNum] = {};
+        }
+        if (type === 'like') {
+            baselines[rowNum].likesBefore = item.likes;
+            item.likes++;
+        } else {
+            baselines[rowNum].heartsBefore = item.hearts;
+            item.hearts++;
+        }
+        localStorage.setItem('reaction_baselines', JSON.stringify(baselines));
     }
     
     list.push(rowNum);
