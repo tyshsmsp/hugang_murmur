@@ -115,7 +115,7 @@ async function loadSourceData(source) {
 
         return rows.map((row, rIdx) => {
             const c = row.c.map(cell => (cell && cell.v !== null) ? String(cell.v) : '');
-            const isApproved = c[7] && c[7].toLowerCase().trim() === OK_TAG;
+            const isApproved = c.some(val => val.toLowerCase().trim() === OK_TAG.toLowerCase());
             const rowNum = rIdx + 2;
             const postKey = `${source.id}:${rowNum}`;
 
