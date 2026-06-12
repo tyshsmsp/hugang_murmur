@@ -64,10 +64,10 @@ function updateCountdown() {
     timerElement.innerHTML = `${d}天 ${h}時 ${m}分 ${s}秒`;
 }
 
-function getSource(sourceId) {
-    return SOURCES.find(source => source.id === sourceId);
+function getStoredSource(sourceId) {
+    // 💡 斬草除根！直接回傳最頂端 SOURCES 陣列裡寫死的最新、最正確的網址，不准讀取瀏覽器快取！
+    return getSource(sourceId); 
 }
-
 function getStoredSource(sourceId) {
     const source = getSource(sourceId);
     if (!source) return null;
