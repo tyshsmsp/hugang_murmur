@@ -356,9 +356,7 @@ async function handleReaction(sourceId, rowNum, type) {
         try {
             await fetch(source.gasUrl, {
                 method: 'POST',
-                mode: 'no-cors',
-                body: JSON.stringify({ action: type, rowNum: rowNum }),
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+                body: JSON.stringify({ action: type, rowNum: rowNum })
             });
         } catch (err) {
             console.error("送出反應失敗", err);
@@ -550,18 +548,30 @@ async function setPostStatus(btn, sourceId, rowNum, action) {
     btn.textContent = "處理中...";
 
     try {
-        await fetch(source.gasUrl, {
+        const resp = await fetch(source.gasUrl, {
             method: 'POST',
-            mode: 'no-cors', 
-            body: JSON.stringify({ action: action, rowNum: rowNum, pass: PASS_WORD }),
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+            body: JSON.stringify({ action: action, rowNum: rowNum, pass: PASS_WORD })
         });
 
+        let result;
+        try { result = await resp.json(); } catch (_) { result = {}; }
+
+        if (result.error) {
+            alert("伺服器回傳錯誤：" + result.error);
+            return;
+        }
+
         btn.textContent = "更新中...";
-        await new Promise(r => setTimeout(r, 2500)); 
-        await loadSheetData(); 
-        
-        alert(action === 'approve' ? "指令已送出！若試算表尚未長出 ok，請確認文藝專欄的 GAS 腳本是否有正確更新。" : "已送出取消指令。");
+        await new Promise(r => setTimeout(r, 1500));
+        await loadSheetData();
+
+        const updated = allSubmissionsData.find(d => d.sourceId === sourceId && d.rowNum === rowNum);
+        const succeeded = updated && (action === 'approve' ? updated.isOk === true : updated.isOk === false);
+        if (succeeded) {
+            alert(action === 'approve' ? "已發布到碎碎念牆。" : "已取消發布。");
+        } else {
+            alert("已送出更新，若畫面尚未變更，請稍後重新整理。");
+        }
     } catch (err) {
         console.error("更新審核狀態失敗", err);
         alert("連線發生異常，請確認網路或 Apps Script 設定。");
