@@ -517,7 +517,6 @@ function closePublishConfirm() {
     
     pendingPublish = null;
 }
-}
 
 function confirmPublishPost() {
     if (!pendingPublish) return;
