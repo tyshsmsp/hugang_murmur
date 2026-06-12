@@ -560,6 +560,40 @@ async function setPostStatus(btn, sourceId, rowNum, action) {
     btn.textContent = "處理中...";
 
     try {
+        // 🚀 使用 mode: 'no-cors'，但配合標準的 text/plain 格式
+        await fetch(source.gasUrl, {
+            method: 'POST',
+            mode: 'no-cors', // 重新加回 no-cors，阻止瀏覽器噴 CORS 錯誤
+            body: JSON.stringify({ action: action, rowNum: rowNum, pass: PASS_WORD }),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+        });
+
+        // 💡 因為 no-cors 會讓我們無法讀取 response，所以我們直接假定它成功！
+        btn.textContent = "更新中...";
+        
+        // 等待 2.5 秒讓 Google 試算表寫入並同步
+        await new Promise(r => setTimeout(r, 2500)); 
+        
+        // 重新撈取資料更新網頁畫面
+        await loadSheetData(); 
+        
+        // 跳出成功提示
+        alert(action === 'approve' ? "指令已送出！若試算表尚未長出 ok，請確認文藝專欄的 GAS 腳本是否有正確更新。" : "已送出取消指令。");
+
+    } catch (err) {
+        console.error("更新審核狀態失敗", err);
+        alert("連線發生異常，請確認網路或 Apps Script 設定。");
+    } finally {
+        btn.disabled = false;
+        btn.textContent = oldText;
+    }
+}
+
+    const oldText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "處理中...";
+
+    try {
         // 🚀 移除 mode: 'no-cors'，改用標準 text/plain 跨網域傳輸，資料才不會被清空
         await fetch(source.gasUrl, {
             method: 'POST',
