@@ -64,23 +64,13 @@ function updateCountdown() {
     timerElement.innerHTML = `${d}天 ${h}時 ${m}分 ${s}秒`;
 }
 
-function getStoredSource(sourceId) {
-    // 💡 斬草除根！直接回傳最頂端 SOURCES 陣列裡寫死的最新、最正確的網址，不准讀取瀏覽器快取！
-    return getSource(sourceId); 
+// 💡 僅保留純淨版函數，杜絕任何 LocalStorage 壞網址覆蓋
+function getSource(id) {
+    return SOURCES.find(s => s.id === id) || null;
 }
-function getStoredSource(sourceId) {
-    const source = getSource(sourceId);
-    if (!source) return null;
 
-    return {
-        ...source,
-        title: localStorage.getItem(`${sourceId}_title`) || source.title,
-        subtitle: localStorage.getItem(`${sourceId}_subtitle`) || source.subtitle,
-        badge: localStorage.getItem(`${sourceId}_badge`) || source.badge,
-        sheetId: localStorage.getItem(`${sourceId}_sheet_id`) || source.sheetId,
-        formUrl: localStorage.getItem(`${sourceId}_form_url`) || source.formUrl,
-        gasUrl: localStorage.getItem(`${sourceId}_gas_url`) || source.gasUrl
-    };
+function getStoredSource(sourceId) {
+    return getSource(sourceId); 
 }
 
 function getEnabledSources() {
@@ -364,9 +354,9 @@ async function handleReaction(sourceId, rowNum, type) {
     const source = getStoredSource(sourceId);
     if (source && source.gasUrl) {
         try {
-            // 🔥 反應按鈕這裡也順便修正，確保讚數和愛心數可以順利上傳
             await fetch(source.gasUrl, {
                 method: 'POST',
+                mode: 'no-cors',
                 body: JSON.stringify({ action: type, rowNum: rowNum }),
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' }
             });
@@ -547,7 +537,7 @@ function saveSourceSettings(sourceId) {
     loadSheetData();
 }
 
-// 🔥 【重大核心修正】徹底解決資料被 no-cors 吞掉、試算表不長 ok 的世紀之謎
+// 🚀 精準無死角、大括號對齊的極速發布函數
 async function setPostStatus(btn, sourceId, rowNum, action) {
     const source = getStoredSource(sourceId);
     if (!source || !source.gasUrl) {
@@ -560,61 +550,21 @@ async function setPostStatus(btn, sourceId, rowNum, action) {
     btn.textContent = "處理中...";
 
     try {
-        // 🚀 使用 mode: 'no-cors'，但配合標準的 text/plain 格式
         await fetch(source.gasUrl, {
             method: 'POST',
-            mode: 'no-cors', // 重新加回 no-cors，阻止瀏覽器噴 CORS 錯誤
+            mode: 'no-cors', 
             body: JSON.stringify({ action: action, rowNum: rowNum, pass: PASS_WORD }),
             headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
 
-        // 💡 因為 no-cors 會讓我們無法讀取 response，所以我們直接假定它成功！
         btn.textContent = "更新中...";
-        
-        // 等待 2.5 秒讓 Google 試算表寫入並同步
         await new Promise(r => setTimeout(r, 2500)); 
-        
-        // 重新撈取資料更新網頁畫面
         await loadSheetData(); 
         
-        // 跳出成功提示
         alert(action === 'approve' ? "指令已送出！若試算表尚未長出 ok，請確認文藝專欄的 GAS 腳本是否有正確更新。" : "已送出取消指令。");
-
     } catch (err) {
         console.error("更新審核狀態失敗", err);
         alert("連線發生異常，請確認網路或 Apps Script 設定。");
-    } finally {
-        btn.disabled = false;
-        btn.textContent = oldText;
-    }
-}
-
-    const oldText = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = "處理中...";
-
-    try {
-        // 🚀 移除 mode: 'no-cors'，改用標準 text/plain 跨網域傳輸，資料才不會被清空
-        await fetch(source.gasUrl, {
-            method: 'POST',
-            body: JSON.stringify({ action: action, rowNum: rowNum, pass: PASS_WORD }),
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
-        });
-
-        btn.textContent = "更新中...";
-        await new Promise(r => setTimeout(r, 2000));
-        await loadSheetData();
-
-        const updated = allSubmissionsData.find(d => d.sourceId === sourceId && d.rowNum === rowNum);
-        const succeeded = updated && (action === 'approve' ? updated.isOk === true : updated.isOk === false);
-        if (succeeded) {
-            alert(action === 'approve' ? "已發布到碎碎念牆。" : "已取消發布。");
-        } else {
-            alert("已送出更新，若畫面尚未變更，請稍後重新整理或確認 Apps Script 設定。");
-        }
-    } catch (err) {
-        console.error("更新審核狀態失敗", err);
-        alert("更新失敗，請確認 Apps Script 是否正常部署。");
     } finally {
         btn.disabled = false;
         btn.textContent = oldText;
