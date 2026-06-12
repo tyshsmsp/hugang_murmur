@@ -494,8 +494,13 @@ function openPublishConfirm(btn, sourceId, rowNum) {
         <div><strong>To：</strong>${escapeHTML(item.to)}</div>
         <div><strong>內容：</strong>${escapeHTML(item.msg)}</div>
     `;
+    
     overlay.classList.add('active');
-    overlay.setAttribute('aria-hidden', 'false');
+    overlay.removeAttribute('aria-hidden'); // 🔥 顯示時直接移除這個屬性，最安全
+    
+    // 讓瀏覽器焦點移到確認視窗內的第一個按鈕上
+    const confirmBtn = document.getElementById('confirm-publish-btn');
+    if (confirmBtn) confirmBtn.focus();
 }
 
 function closePublishConfirm() {
@@ -504,7 +509,14 @@ function closePublishConfirm() {
 
     overlay.classList.remove('active');
     overlay.setAttribute('aria-hidden', 'true');
+    
+    // 🔥 【關鍵修復】關閉視窗時，把鍵盤焦點還給原本列表上的那個「發布按鈕」！
+    if (pendingPublish && pendingPublish.btn) {
+        pendingPublish.btn.focus();
+    }
+    
     pendingPublish = null;
+}
 }
 
 function confirmPublishPost() {
