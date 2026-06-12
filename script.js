@@ -364,11 +364,11 @@ async function handleReaction(sourceId, rowNum, type) {
     const source = getStoredSource(sourceId);
     if (source && source.gasUrl) {
         try {
+            // 🔥 反應按鈕這裡也順便修正，確保讚數和愛心數可以順利上傳
             await fetch(source.gasUrl, {
                 method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: type, rowNum: rowNum })
+                body: JSON.stringify({ action: type, rowNum: rowNum }),
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' }
             });
         } catch (err) {
             console.error("送出反應失敗", err);
@@ -496,9 +496,8 @@ function openPublishConfirm(btn, sourceId, rowNum) {
     `;
     
     overlay.classList.add('active');
-    overlay.removeAttribute('aria-hidden'); // 🔥 顯示時直接移除這個屬性，最安全
+    overlay.removeAttribute('aria-hidden'); 
     
-    // 讓瀏覽器焦點移到確認視窗內的第一個按鈕上
     const confirmBtn = document.getElementById('confirm-publish-btn');
     if (confirmBtn) confirmBtn.focus();
 }
@@ -510,7 +509,6 @@ function closePublishConfirm() {
     overlay.classList.remove('active');
     overlay.setAttribute('aria-hidden', 'true');
     
-    // 🔥 【關鍵修復】關閉視窗時，把鍵盤焦點還給原本列表上的那個「發布按鈕」！
     if (pendingPublish && pendingPublish.btn) {
         pendingPublish.btn.focus();
     }
@@ -549,6 +547,7 @@ function saveSourceSettings(sourceId) {
     loadSheetData();
 }
 
+// 🔥 【重大核心修正】徹底解決資料被 no-cors 吞掉、試算表不長 ok 的世紀之謎
 async function setPostStatus(btn, sourceId, rowNum, action) {
     const source = getStoredSource(sourceId);
     if (!source || !source.gasUrl) {
@@ -561,11 +560,11 @@ async function setPostStatus(btn, sourceId, rowNum, action) {
     btn.textContent = "處理中...";
 
     try {
+        // 🚀 移除 mode: 'no-cors'，改用標準 text/plain 跨網域傳輸，資料才不會被清空
         await fetch(source.gasUrl, {
             method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-            body: JSON.stringify({ action: action, rowNum: rowNum, pass: PASS_WORD })
+            body: JSON.stringify({ action: action, rowNum: rowNum, pass: PASS_WORD }),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
 
         btn.textContent = "更新中...";
