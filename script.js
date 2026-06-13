@@ -548,30 +548,26 @@ async function setPostStatus(btn, sourceId, rowNum, action) {
     btn.textContent = "處理中...";
 
     try {
-        const resp = await fetch(source.gasUrl, {
+        // 🚀 【核心修正】加入 mode: 'no-cors' 與 text/plain，強行突破瀏覽器 CORS 封鎖
+        await fetch(source.gasUrl, {
             method: 'POST',
-            body: JSON.stringify({ action: action, rowNum: rowNum, pass: PASS_WORD })
+            mode: 'no-cors', 
+            body: JSON.stringify({ action: action, rowNum: rowNum, pass: PASS_WORD }),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
 
-        let result;
-        try { result = await resp.json(); } catch (_) { result = {}; }
-
-        if (result.error) {
-            alert("伺服器回傳錯誤：" + result.error);
-            return;
-        }
-
+        // 💡 註解掉原本的 resp.json() 讀取，因為 no-cors 模式下瀏覽器不給讀回傳值
         btn.textContent = "更新中...";
-        await new Promise(r => setTimeout(r, 1500));
-        await loadSheetData();
+        
+        // 等待 2.5 秒，給 Google 試算表充分的時間寫入 "ok" 並同步
+        await new Promise(r => setTimeout(r, 2500)); 
+        
+        // 重新撈取最新的 Google Sheet 資料更新網頁畫面
+        await loadSheetData(); 
+        
+        // 直接提示使用者指令已送出
+        alert(action === 'approve' ? "指令已送出！請確認文藝專欄試算表是否已長出 ok。" : "已送出取消指令。");
 
-        const updated = allSubmissionsData.find(d => d.sourceId === sourceId && d.rowNum === rowNum);
-        const succeeded = updated && (action === 'approve' ? updated.isOk === true : updated.isOk === false);
-        if (succeeded) {
-            alert(action === 'approve' ? "已發布到碎碎念牆。" : "已取消發布。");
-        } else {
-            alert("已送出更新，若畫面尚未變更，請稍後重新整理。");
-        }
     } catch (err) {
         console.error("更新審核狀態失敗", err);
         alert("連線發生異常，請確認網路或 Apps Script 設定。");
