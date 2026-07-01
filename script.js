@@ -14,8 +14,8 @@ var SOURCES = [
     },
     {
         id: 'literary',
-        title: '文藝專欄',
-        subtitle: '散文、短詩、小說片段、書寫練習與校園文學',
+        title: '虎崗文藝專欄',
+        subtitle: '散文、短詩、小說片段與校園文學(要告白的也是可以_)',
         sheetId: '1ZL6lr4LK-09tevWUTOvwHeDO_iwqJBCiPhSj3ql5Bh4',
         formUrl: 'https://forms.gle/pakcKATufdwZXeQeA',
         gasUrl: 'https://script.google.com/macros/s/AKfycbxUBfOvk5si31wfytlRVsugSqjvQ_eUdGnq33qSKUHTloUcB516GB1b_MbgFK-gRGyokA/exec',
