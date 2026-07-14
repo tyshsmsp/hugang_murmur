@@ -818,21 +818,28 @@ async function setPostStatus(btn, sourceId, rowNum, action) {
         console.warn("fetch 拋出例外（可能是 GAS CORS 重導向，繼續驗證結果）：", err);
     }
 
-    // 不論 fetch 是否成功，都等待後重新載入資料，用資料本身來判斷操作結果
+    // 不論 fetch 是否成功，都重試載入資料（最多 3 次，間隔 3 秒）
+    // 原因：Google Sheets gviz API 有伺服器端快取，更新後可能需等待數秒才回傳新資料
     btn.textContent = "驗證中...";
-    await new Promise(r => setTimeout(r, 2000));
-    // 設定最長 12 秒逾時，避免 loadSheetData 卡住導致畫面凍結
-    await Promise.race([
-        loadSheetData(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error('reload timeout')), 12000))
-    ]).catch(err => console.warn('重新載入資料逾時或失敗：', err));
+    let succeeded = false;
+    const MAX_RETRIES = 3;
+    for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+        await new Promise(r => setTimeout(r, attempt === 0 ? 2000 : 3000));
+        await Promise.race([
+            loadSheetData(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('reload timeout')), 12000))
+        ]).catch(err => console.warn('重新載入資料逾時或失敗：', err));
 
-    const updated = allSubmissionsData.find(d => d.sourceId === sourceId && d.rowNum === rowNum);
-    const succeeded = updated && (action === 'approve' ? updated.isOk === true : updated.isOk === false);
+        const updated = allSubmissionsData.find(d => d.sourceId === sourceId && d.rowNum === rowNum);
+        succeeded = updated && (action === 'approve' ? updated.isOk === true : updated.isOk === false);
+        if (succeeded) break;
+        console.log(`第 ${attempt + 1} 次驗證未確認，${attempt < MAX_RETRIES - 1 ? '繼續重試...' : '已達最大重試次數'}`);
+    }
+
     if (succeeded) {
         showToast(action === 'approve' ? "已發布到碎碎念牆。" : "已取消發布。", "success");
     } else {
-        showToast("已送出更新，若畫面尚未變更，請稍後重新整理。", "info");
+        showToast("Google Sheets 快取尚未更新，投稿已記錄——請等待 30 秒後畫面自動刷新，或手動重新整理頁面。", "info");
     }
 
     btn.disabled = false;
