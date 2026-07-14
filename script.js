@@ -1,3 +1,7 @@
+// ============================================================
+// 虎崗碎碎念 V2 — Script
+// ============================================================
+
 var PASS_WORD = 'hugangmurmursmsp';
 var OK_TAG = 'ok';
 
@@ -14,8 +18,8 @@ var SOURCES = [
     },
     {
         id: 'literary',
-        title: '虎崗文藝專欄',
-        subtitle: '散文、短詩、小說片段與校園文學(要告白的也是可以_)',
+        title: '文藝專欄',
+        subtitle: '散文、短詩、小說片段、書寫練習與校園文學',
         sheetId: '1ZL6lr4LK-09tevWUTOvwHeDO_iwqJBCiPhSj3ql5Bh4',
         formUrl: 'https://forms.gle/pakcKATufdwZXeQeA',
         gasUrl: 'https://script.google.com/macros/s/AKfycbxUBfOvk5si31wfytlRVsugSqjvQ_eUdGnq33qSKUHTloUcB516GB1b_MbgFK-gRGyokA/exec',
@@ -28,15 +32,27 @@ var complaintsData = [];
 var allSubmissionsData = [];
 var activeTopic = 'all';
 var pendingPublish = null;
+var searchQuery = '';
 
-window.onload = function() {
+// ============================================================
+// Initialization
+// ============================================================
+
+window.onload = function () {
     const dateOpt = { year: 'numeric', month: 'long', day: 'numeric' };
     document.getElementById('today-date').textContent = new Date().toLocaleDateString('zh-TW', dateOpt);
 
     startCountdown();
-    renderSubmissionList();
-    loadSheetData();
+    // 優先從本地快取載入舊資料，實現秒開
+    loadCachedData();
+    populateSubmitSources();
+    loadSheetData(); // 背景/非同步載入最新資料
+    initBackToTop();
 };
+
+// ============================================================
+// Countdown
+// ============================================================
 
 function startCountdown() {
     updateCountdown();
@@ -64,13 +80,27 @@ function updateCountdown() {
     timerElement.innerHTML = `${d}天 ${h}時 ${m}分 ${s}秒`;
 }
 
-// 💡 僅保留純淨版函數，杜絕任何 LocalStorage 壞網址覆蓋
+// ============================================================
+// Source Helpers
+// ============================================================
+
 function getSource(id) {
     return SOURCES.find(s => s.id === id) || null;
 }
 
 function getStoredSource(sourceId) {
-    return getSource(sourceId); 
+    const s = getSource(sourceId);
+    if (!s) return null;
+    return {
+        id: s.id,
+        title: localStorage.getItem(`${sourceId}_title`) || s.title,
+        subtitle: localStorage.getItem(`${sourceId}_subtitle`) || s.subtitle,
+        badge: localStorage.getItem(`${sourceId}_badge`) || s.badge,
+        sheetId: localStorage.getItem(`${sourceId}_sheet_id`) || s.sheetId,
+        formUrl: localStorage.getItem(`${sourceId}_form_url`) || s.formUrl,
+        gasUrl: localStorage.getItem(`${sourceId}_gas_url`) || s.gasUrl,
+        enabled: s.enabled
+    };
 }
 
 function getEnabledSources() {
@@ -81,6 +111,10 @@ function getApiUrl(sheetId) {
     return "https://docs.google.com/spreadsheets/d/" + sheetId + "/gviz/tq?tqx=out:json&tq=" + encodeURIComponent("SELECT *") + "&v=" + new Date().getTime();
 }
 
+// ============================================================
+// Data Loading
+// ============================================================
+
 async function loadSheetData() {
     const sources = getEnabledSources();
     const results = await Promise.all(sources.map(loadSourceData));
@@ -88,7 +122,27 @@ async function loadSheetData() {
     allSubmissionsData = results.flat();
     complaintsData = allSubmissionsData.filter(item => item.isOk === true);
 
+    // 將資料存入快取
+    try {
+        localStorage.setItem('cached_submissions_data', JSON.stringify(allSubmissionsData));
+    } catch (e) {
+        console.error("寫入快取失敗", e);
+    }
+
     refreshUI();
+}
+
+function loadCachedData() {
+    try {
+        const cached = localStorage.getItem('cached_submissions_data');
+        if (cached) {
+            allSubmissionsData = JSON.parse(cached);
+            complaintsData = allSubmissionsData.filter(item => item.isOk === true);
+            refreshUI();
+        }
+    } catch (e) {
+        console.error("載入快取失敗", e);
+    }
 }
 
 async function loadSourceData(source) {
@@ -148,6 +202,10 @@ async function loadSourceData(source) {
     }
 }
 
+// ============================================================
+// UI Refresh
+// ============================================================
+
 function refreshUI() {
     renderSubmissionList();
     renderTopicToolbar();
@@ -160,25 +218,113 @@ function refreshUI() {
     }
 }
 
-function renderSubmissionList() {
-    const container = document.getElementById('submission-list');
-    if (!container) return;
+// ============================================================
+// Render: Submission List (投稿頁)
+// ============================================================
 
-    container.innerHTML = getEnabledSources().map(source => {
-        const hasForm = Boolean(source.formUrl);
-        return `
-            <article class="submit-card ${hasForm ? '' : 'disabled'}">
-                <div class="submit-card-kicker">${escapeHTML(source.badge)}</div>
-                <h3>${escapeHTML(source.title)}</h3>
-                <p>${escapeHTML(source.subtitle)}</p>
-                ${hasForm
-                    ? `<a class="forms-btn" href="${escapeHTML(source.formUrl)}" target="_blank">前往 ${escapeHTML(source.title)} 表單</a>`
-                    : `<button class="forms-btn" disabled>表單尚未開放</button>`
-                }
-            </article>
-        `;
-    }).join('');
+function populateSubmitSources() {
+    const select = document.getElementById('submit-source');
+    if (!select) return;
+    
+    select.innerHTML = getEnabledSources().map(source => 
+        `<option value="${escapeHTML(source.id)}">${escapeHTML(source.title)}</option>`
+    ).join('');
+    
+    updateFormPlaceholder();
 }
+
+function updateCharCount() {
+    const msg = document.getElementById('submit-msg');
+    const countSpan = document.getElementById('char-count');
+    if (msg && countSpan) {
+        countSpan.textContent = msg.value.length;
+    }
+}
+
+function updateFormPlaceholder() {
+    const select = document.getElementById('submit-source');
+    const msg = document.getElementById('submit-msg');
+    const tag = document.getElementById('submit-tag');
+    if (!select || !msg || !tag) return;
+    
+    const sourceId = select.value;
+    const source = getStoredSource(sourceId);
+    if (!source) return;
+    
+    if (source.id === 'literary') {
+        msg.placeholder = "請寫下散文、短詩、小說片段或書寫練習內容...";
+        tag.placeholder = "自訂標籤 (例如：#散文、#詩集，留空則預設為 #文藝專欄)";
+    } else {
+        msg.placeholder = "校園日常、避坑指南、吐槽、告白或新生求問...";
+        tag.placeholder = "自訂標籤 (例如：#求救、#告白，留空則預設為 #新生入學專題)";
+    }
+}
+
+async function handleFormSubmit(event) {
+    event.preventDefault();
+    
+    const sourceId = document.getElementById('submit-source').value;
+    const to = document.getElementById('submit-to').value.trim();
+    const msg = document.getElementById('submit-msg').value.trim();
+    const name = document.getElementById('submit-name').value.trim() || "匿名";
+    const tag = document.getElementById('submit-tag').value.trim();
+    
+    if (!msg) {
+        showToast("投稿內容不能為空", "error");
+        return;
+    }
+    
+    const source = getStoredSource(sourceId);
+    if (!source || !source.gasUrl) {
+        showToast("該專欄尚未設定 Apps Script URL，無法送出投稿。", "error");
+        return;
+    }
+    
+    const submitBtn = document.getElementById('submit-btn');
+    const oldBtnHTML = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = `
+        <svg class="animate-spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="animation: spin 1s linear infinite;"><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"/><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"/><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"/></svg>
+        傳送中...
+    `;
+    
+    try {
+        const resp = await fetch(source.gasUrl, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: 'submit',
+                name: name,
+                to: to,
+                msg: msg,
+                tag: tag || source.title
+            })
+        });
+        
+        let result;
+        try { result = await resp.json(); } catch (_) { result = {}; }
+        
+        if (result.success) {
+            showToast("投稿成功！已送至後台進行審核。", "success");
+            document.getElementById('submission-form').reset();
+            updateCharCount();
+            setTimeout(() => {
+                showPage('browse');
+            }, 1500);
+        } else {
+            showToast("投稿失敗：" + (result.error || "未知錯誤"), "error");
+        }
+    } catch (err) {
+        console.error("投稿連線錯誤", err);
+        showToast("連線發生異常，請稍後再試。", "error");
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = oldBtnHTML;
+    }
+}
+
+// ============================================================
+// Render: Topic Toolbar
+// ============================================================
 
 function renderTopicToolbar() {
     const toolbar = document.getElementById('topic-toolbar');
@@ -198,35 +344,62 @@ function renderTopicToolbar() {
     toolbar.innerHTML = buttons.join('');
 }
 
+// ============================================================
+// Render: Complaints Wall
+// ============================================================
+
 function renderComplaintsWall() {
     const wall = document.getElementById('complaints-wall');
     if (!wall) return;
 
-    const showList = [...complaintsData].sort(sortByTimeDesc);
+    let showList = [...complaintsData].sort(sortByTimeDesc);
+
+    // Apply search filter
+    if (searchQuery) {
+        const q = searchQuery.toLowerCase();
+        showList = showList.filter(d =>
+            d.msg.toLowerCase().includes(q) ||
+            d.name.toLowerCase().includes(q) ||
+            d.to.toLowerCase().includes(q) ||
+            d.tag.toLowerCase().includes(q)
+        );
+    }
+
     const filteredList = activeTopic === 'all'
         ? showList
         : showList.filter(d => d.sourceId === activeTopic);
 
-    if (showList.length === 0) {
+    if (complaintsData.length === 0 && !searchQuery) {
         wall.innerHTML = `<div class="empty-state">目前還沒有已發布的投稿。</div>`;
         return;
     }
 
     if (filteredList.length === 0) {
-        wall.innerHTML = `<div class="empty-state">這個專欄目前還沒有公開投稿。</div>`;
+        wall.innerHTML = searchQuery
+            ? `<div class="no-results">找不到符合「${escapeHTML(searchQuery)}」的投稿。</div>`
+            : `<div class="empty-state">這個專欄目前還沒有公開投稿。</div>`;
         return;
     }
 
-    if (activeTopic === 'all') {
+    if (activeTopic === 'all' && !searchQuery) {
         wall.innerHTML = getEnabledSources().map(source => {
             const sourceItems = filteredList.filter(d => d.sourceId === source.id);
             return renderSourceSection(source, sourceItems);
         }).join('');
-        return;
+    } else if (activeTopic === 'all' && searchQuery) {
+        wall.innerHTML = filteredList.map(renderComplaintCard).join('');
+    } else {
+        const source = getStoredSource(activeTopic);
+        wall.innerHTML = renderSourceSection(source, filteredList);
     }
 
-    const source = getStoredSource(activeTopic);
-    wall.innerHTML = renderSourceSection(source, filteredList);
+    // Trigger card entrance animations
+    requestAnimationFrame(() => {
+        const cards = wall.querySelectorAll('.complaint-card');
+        cards.forEach((card, i) => {
+            setTimeout(() => card.classList.add('visible'), i * 60);
+        });
+    });
 }
 
 function renderSourceSection(source, items) {
@@ -246,8 +419,8 @@ function renderSourceSection(source, items) {
 
 function renderComplaintCard(d) {
     const isFeatured = d.sourceId === 'literary';
-    const cardStyle = isFeatured ? 'border: 2px solid var(--red); background: #fffdfd; box-shadow: 4px 4px 0px var(--red);' : '';
-    const tagStyle = isFeatured ? 'background: var(--red); color: white; padding: 2px 8px; border-radius:3px;' : 'color: var(--red); font-weight:bold;';
+    const cardClass = isFeatured ? 'complaint-card featured' : 'complaint-card';
+    const tagClass = isFeatured ? 'complaint-tag featured' : 'complaint-tag default';
 
     const likedList = JSON.parse(localStorage.getItem('liked_posts') || '[]');
     const heartedList = JSON.parse(localStorage.getItem('hearted_posts') || '[]');
@@ -255,25 +428,29 @@ function renderComplaintCard(d) {
     const isHearted = heartedList.includes(d.postKey);
 
     return `
-        <div class="complaint-card" style="${cardStyle}">
+        <div class="${cardClass}">
             <div class="complaint-cat">${escapeHTML(d.sourceTitle)} / To: ${escapeHTML(d.to)}</div>
             <div class="complaint-text">${escapeHTML(d.msg)}</div>
             <div style="margin-bottom:12px;">
-                <span style="${tagStyle} font-size:12px; display:inline-block;">${escapeHTML(d.tag)}</span>
+                <span class="${tagClass}">${escapeHTML(d.tag)}</span>
             </div>
 
             <div class="reactions-bar">
-                <button class="reaction-btn ${isLiked ? 'active' : ''}" ${isLiked ? 'disabled' : ''} onclick="handleReaction('${escapeJs(d.sourceId)}', ${d.rowNum}, 'like')">
-                    讚 <span class="reaction-count">${d.likes}</span>
+                <button class="reaction-btn ${isLiked ? 'active' : ''}" ${isLiked ? 'disabled' : ''} onclick="handleReaction(event, '${escapeJs(d.sourceId)}', ${d.rowNum}, 'like')">
+                    👍 <span class="reaction-count">${d.likes}</span>
                 </button>
-                <button class="reaction-btn ${isHearted ? 'active' : ''}" ${isHearted ? 'disabled' : ''} onclick="handleReaction('${escapeJs(d.sourceId)}', ${d.rowNum}, 'heart')">
-                    愛心 <span class="reaction-count">${d.hearts}</span>
+                <button class="reaction-btn ${isHearted ? 'active' : ''}" ${isHearted ? 'disabled' : ''} onclick="handleReaction(event, '${escapeJs(d.sourceId)}', ${d.rowNum}, 'heart')">
+                    ❤️ <span class="reaction-count">${d.hearts}</span>
                 </button>
             </div>
 
             <div class="complaint-meta"><span>投稿人 ${escapeHTML(d.name)}</span><span>${formatTimestamp(d.time)}</span></div>
         </div>`;
 }
+
+// ============================================================
+// Render: Home Summary
+// ============================================================
 
 function renderHomeSummary() {
     const total = document.getElementById('home-total');
@@ -283,16 +460,29 @@ function renderHomeSummary() {
     if (!sb) return;
 
     if (complaintsData.length === 0) {
-        sb.innerHTML = '目前還沒有刊登內容。';
+        sb.innerHTML = '<div style="color:var(--text-muted); font-size:14px;">目前還沒有刊登內容。</div>';
         return;
     }
 
     sb.innerHTML = [...complaintsData].sort(sortByTimeDesc).slice(0, 3).map(d => `
-        <div class="complaint-card" style="padding:15px; font-size:13px; border-left-width:3px; margin-bottom:12px;">
-            <div style="background:var(--red); color:white; display:inline-block; padding:0 5px; font-size:10px; margin-bottom:5px;">${escapeHTML(d.sourceTitle)}</div>
-            <p style="color:var(--ink); font-weight:500;">${escapeHTML(d.msg.length > 30 ? d.msg.slice(0,30) + '...' : d.msg)}</p>
+        <div class="sidebar-card">
+            <div class="sidebar-card-badge">${escapeHTML(d.sourceTitle)}</div>
+            <p>${escapeHTML(d.msg.length > 40 ? d.msg.slice(0, 40) + '...' : d.msg)}</p>
         </div>`).join('');
 }
+
+// ============================================================
+// Search
+// ============================================================
+
+function handleSearch(value) {
+    searchQuery = value.trim();
+    renderComplaintsWall();
+}
+
+// ============================================================
+// Page Navigation
+// ============================================================
 
 function setTopic(topic) {
     activeTopic = topic;
@@ -303,34 +493,47 @@ function setTopic(topic) {
 function showPage(name) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+
     const target = document.getElementById('page-' + name);
     if (target) target.classList.add('active');
 
-    const btns = document.querySelectorAll('nav button');
-    const idxMap = { 'home': 0, 'browse': 1, 'submit': 2, 'admin': 3 };
-    if (btns[idxMap[name]]) btns[idxMap[name]].classList.add('active');
+    const navBtn = document.getElementById('nav-' + name);
+    if (navBtn) navBtn.classList.add('active');
 
     if (name === 'browse') refreshUI();
-    window.scrollTo(0,0);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
 }
+
+// ============================================================
+// Admin
+// ============================================================
 
 function adminLogin() {
     if (document.getElementById('admin-pass').value === PASS_WORD) {
         document.getElementById('admin-login-box').style.display = 'none';
         renderAdminDashboard();
     } else {
-        alert('密碼錯誤');
+        showToast('密碼錯誤！請再次確認您的管理密碼。', 'error');
     }
 }
 
-async function handleReaction(sourceId, rowNum, type) {
+// ============================================================
+// Reactions (with particle effect)
+// ============================================================
+
+async function handleReaction(event, sourceId, rowNum, type) {
     const postKey = `${sourceId}:${rowNum}`;
     const key = type === 'like' ? 'liked_posts' : 'hearted_posts';
     const list = JSON.parse(localStorage.getItem(key) || '[]');
 
     if (list.includes(postKey)) {
-        alert("你已經反應過這則投稿了。");
+        showToast("您已經反應過這則投稿了。", "warning");
         return;
+    }
+
+    // Spawn particles
+    if (event && event.currentTarget) {
+        spawnParticles(event.currentTarget, type === 'like' ? '👍' : '❤️');
     }
 
     const item = allSubmissionsData.find(d => d.postKey === postKey);
@@ -364,6 +567,26 @@ async function handleReaction(sourceId, rowNum, type) {
     }
 }
 
+function spawnParticles(btn, emoji) {
+    for (let i = 0; i < 6; i++) {
+        const particle = document.createElement('span');
+        particle.className = 'reaction-particle';
+        particle.textContent = emoji;
+        const angle = (Math.PI * 2 * i) / 6 + (Math.random() - 0.5) * 0.5;
+        const dist = 30 + Math.random() * 30;
+        particle.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+        particle.style.setProperty('--ty', Math.sin(angle) * dist - 20 + 'px');
+        particle.style.left = '50%';
+        particle.style.top = '50%';
+        btn.appendChild(particle);
+        setTimeout(() => particle.remove(), 700);
+    }
+}
+
+// ============================================================
+// Admin Dashboard
+// ============================================================
+
 function renderAdminDashboard() {
     const dashboard = document.getElementById('admin-dashboard');
     if (!dashboard) return;
@@ -372,8 +595,8 @@ function renderAdminDashboard() {
 
     let html = `
         <div class="admin-header">
-            <h3 style="margin-bottom:10px;">後台審稿室</h3>
-            <p style="font-size:13px; line-height:1.5; margin-bottom:15px; color:#555;">
+            <h3>後台審稿室</h3>
+            <p>
                 這裡會同時讀取各專欄的 Google Sheets。每個專欄可以設定自己的表單、試算表與 Apps Script URL。
             </p>
             <div class="admin-source-settings">
@@ -406,7 +629,7 @@ function renderAdminDashboard() {
 
 function renderAdminSourceSettings(source) {
     return `
-        <div class="admin-config source-config">
+        <div class="source-config">
             <div class="source-config-row">
                 <div class="source-config-field">
                     <label for="${source.id}-title">專欄名稱</label>
@@ -455,18 +678,22 @@ function renderAdminCard(d) {
         <div class="admin-card">
             <div class="admin-card-header">
                 <span class="admin-status ${statusClass}">${statusText}</span>
-                <span style="font-size:11px; color:var(--stamp);">${formatTimestamp(d.time)}</span>
+                <span style="font-size:11px; color:var(--text-muted);">${formatTimestamp(d.time)}</span>
             </div>
-            <div style="font-size: 13px; font-weight: bold; margin-bottom: 5px;">To: ${escapeHTML(d.to)} | 投稿人 ${escapeHTML(d.name)}</div>
+            <div style="font-size: 13px; font-weight: bold; margin-bottom: 5px; color:var(--text-primary);">To: ${escapeHTML(d.to)} | 投稿人 ${escapeHTML(d.name)}</div>
             <div class="admin-card-msg">${escapeHTML(d.msg)}</div>
-            <div style="font-size: 11px; color:var(--stamp); margin-bottom: 10px;">專欄：${escapeHTML(d.sourceTitle)}｜標籤：${escapeHTML(d.tag || '未分類')}</div>
-            <div style="font-size: 11px; margin-bottom: 10px; font-weight:600;">讚 ${d.likes} | 愛心 ${d.hearts}</div>
+            <div style="font-size: 11px; color:var(--text-muted); margin-bottom: 10px;">專欄：${escapeHTML(d.sourceTitle)}｜標籤：${escapeHTML(d.tag || '未分類')}</div>
+            <div style="font-size: 11px; margin-bottom: 10px; font-weight:600; color:var(--text-secondary);">👍 ${d.likes} | ❤️ ${d.hearts}</div>
             <div class="admin-card-actions">
                 ${actionBtn}
             </div>
         </div>
     `;
 }
+
+// ============================================================
+// Publish Confirm Dialog
+// ============================================================
 
 function openPublishConfirm(btn, sourceId, rowNum) {
     const item = allSubmissionsData.find(d => d.sourceId === sourceId && d.rowNum === rowNum);
@@ -482,10 +709,10 @@ function openPublishConfirm(btn, sourceId, rowNum) {
         <div><strong>To：</strong>${escapeHTML(item.to)}</div>
         <div><strong>內容：</strong>${escapeHTML(item.msg)}</div>
     `;
-    
+
     overlay.classList.add('active');
-    overlay.removeAttribute('aria-hidden'); 
-    
+    overlay.removeAttribute('aria-hidden');
+
     const confirmBtn = document.getElementById('confirm-publish-btn');
     if (confirmBtn) confirmBtn.focus();
 }
@@ -496,11 +723,11 @@ function closePublishConfirm() {
 
     overlay.classList.remove('active');
     overlay.setAttribute('aria-hidden', 'true');
-    
+
     if (pendingPublish && pendingPublish.btn) {
         pendingPublish.btn.focus();
     }
-    
+
     pendingPublish = null;
 }
 
@@ -511,6 +738,10 @@ function confirmPublishPost() {
     setPostStatus(task.btn, task.sourceId, task.rowNum, 'approve');
 }
 
+// ============================================================
+// Save Source Settings
+// ============================================================
+
 function saveSourceSettings(sourceId) {
     const title = document.getElementById(`${sourceId}-title`).value.trim();
     const subtitle = document.getElementById(`${sourceId}-subtitle`).value.trim();
@@ -520,7 +751,7 @@ function saveSourceSettings(sourceId) {
     const gasUrl = document.getElementById(`${sourceId}-gas-url`).value.trim();
 
     if (!title) {
-        alert('專欄名稱不能為空');
+        showToast('專欄名稱不能為空', 'error');
         return;
     }
 
@@ -531,15 +762,18 @@ function saveSourceSettings(sourceId) {
     localStorage.setItem(`${sourceId}_form_url`, formUrl);
     localStorage.setItem(`${sourceId}_gas_url`, gasUrl);
 
-    alert('設定已儲存');
+    showToast('設定已儲存', 'success');
     loadSheetData();
 }
 
-// 🚀 精準無死角、大括號對齊的極速發布函數
+// ============================================================
+// Set Post Status (Approve / Reject)
+// ============================================================
+
 async function setPostStatus(btn, sourceId, rowNum, action) {
     const source = getStoredSource(sourceId);
     if (!source || !source.gasUrl) {
-        alert("請先設定此專欄的 Google Apps Script URL，才能更新審核狀態。");
+        showToast("請先設定此專欄的 Google Apps Script URL，才能更新審核狀態。", "warning");
         return;
     }
 
@@ -548,36 +782,69 @@ async function setPostStatus(btn, sourceId, rowNum, action) {
     btn.textContent = "處理中...";
 
     try {
-        // 🚀 【核心修正】加入 mode: 'no-cors' 與 text/plain，強行突破瀏覽器 CORS 封鎖
-        await fetch(source.gasUrl, {
+        const resp = await fetch(source.gasUrl, {
             method: 'POST',
-            mode: 'no-cors', 
-            body: JSON.stringify({ action: action, rowNum: rowNum, pass: PASS_WORD }),
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+            body: JSON.stringify({ action: action, rowNum: rowNum, pass: PASS_WORD })
         });
 
-        // 💡 註解掉原本的 resp.json() 讀取，因為 no-cors 模式下瀏覽器不給讀回傳值
-        btn.textContent = "更新中...";
-        
-        // 等待 2.5 秒，給 Google 試算表充分的時間寫入 "ok" 並同步
-        await new Promise(r => setTimeout(r, 2500)); 
-        
-        // 重新撈取最新的 Google Sheet 資料更新網頁畫面
-        await loadSheetData(); 
-        
-        // 直接提示使用者指令已送出
-        alert(action === 'approve' ? "指令已送出！請確認文藝專欄試算表是否已長出 ok。" : "已送出取消指令。");
+        let result;
+        try { result = await resp.json(); } catch (_) { result = {}; }
 
+        if (result.error) {
+            showToast("伺服器回傳錯誤：" + result.error, "error");
+            return;
+        }
+
+        btn.textContent = "更新中...";
+        await new Promise(r => setTimeout(r, 1500));
+        await loadSheetData();
+
+        const updated = allSubmissionsData.find(d => d.sourceId === sourceId && d.rowNum === rowNum);
+        const succeeded = updated && (action === 'approve' ? updated.isOk === true : updated.isOk === false);
+        if (succeeded) {
+            showToast(action === 'approve' ? "已發布到碎碎念牆。" : "已取消發布。", "success");
+        } else {
+            showToast("已送出更新，若畫面尚未變更，請稍後重新整理。", "info");
+        }
     } catch (err) {
         console.error("更新審核狀態失敗", err);
-        alert("連線發生異常，請確認網路或 Apps Script 設定。");
+        showToast("連線發生異常，請確認網路或 Apps Script 設定。", "error");
     } finally {
         btn.disabled = false;
         btn.textContent = oldText;
     }
 }
 
+// ============================================================
+// Auto-Refresh
+// ============================================================
+
 setInterval(loadSheetData, 30000);
+
+// ============================================================
+// Back to Top
+// ============================================================
+
+function initBackToTop() {
+    const btn = document.getElementById('back-to-top');
+    if (!btn) return;
+
+    window.addEventListener('scroll', () => {
+        if (window.scrollY > 400) {
+            btn.classList.add('visible');
+        } else {
+            btn.classList.remove('visible');
+        }
+    }, { passive: true });
+
+    btn.addEventListener('click', () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+}
+
+// ============================================================
+// Utilities
+// ============================================================
 
 function sortByTimeDesc(a, b) {
     return parseComparableTime(b.time) - parseComparableTime(a.time);
@@ -625,4 +892,50 @@ function escapeHTML(value) {
 
 function escapeJs(value) {
     return String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+// ============================================================
+// Toast Notification System
+// ============================================================
+
+function showToast(message, type = 'info', duration = 3500) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    
+    let icon = 'ℹ️';
+    if (type === 'success') icon = '✅';
+    if (type === 'warning') icon = '⚠️';
+    if (type === 'error') icon = '❌';
+
+    toast.innerHTML = `
+        <span style="display: flex; align-items: center; gap: 8px;">
+            <span>${icon}</span>
+            <span>${message}</span>
+        </span>
+        <button class="toast-close" aria-label="關閉提示">&times;</button>
+    `;
+
+    // 點擊關閉按鈕時手動關閉
+    const closeBtn = toast.querySelector('.toast-close');
+    closeBtn.addEventListener('click', () => {
+        toast.classList.add('toast-fade-out');
+        toast.addEventListener('animationend', () => {
+            toast.remove();
+        });
+    });
+
+    container.appendChild(toast);
+
+    // 自動定時移除
+    setTimeout(() => {
+        if (toast.parentElement) {
+            toast.classList.add('toast-fade-out');
+            toast.addEventListener('animationend', () => {
+                toast.remove();
+            });
+        }
+    }, duration);
 }
