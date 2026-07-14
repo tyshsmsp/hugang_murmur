@@ -781,6 +781,10 @@ async function setPostStatus(btn, sourceId, rowNum, action) {
     btn.disabled = true;
     btn.textContent = "處理中...";
 
+    // 發送請求：GAS 的 POST 回應在瀏覽器環境中會因 CORS 302 重導向而拋出例外，
+    // 但 GAS 本身通常已成功執行並寫入試算表。
+    // 因此無論 fetch 成功或失敗，我們都繼續等待並重新驗證試算表資料。
+    let fetchError = null;
     try {
         const resp = await fetch(source.gasUrl, {
             method: 'POST',
@@ -790,29 +794,34 @@ async function setPostStatus(btn, sourceId, rowNum, action) {
         let result;
         try { result = await resp.json(); } catch (_) { result = {}; }
 
+        // 若 GAS 明確回傳錯誤（且非 CORS 造成），提早中止
         if (result.error) {
             showToast("伺服器回傳錯誤：" + result.error, "error");
+            btn.disabled = false;
+            btn.textContent = oldText;
             return;
         }
-
-        btn.textContent = "更新中...";
-        await new Promise(r => setTimeout(r, 1500));
-        await loadSheetData();
-
-        const updated = allSubmissionsData.find(d => d.sourceId === sourceId && d.rowNum === rowNum);
-        const succeeded = updated && (action === 'approve' ? updated.isOk === true : updated.isOk === false);
-        if (succeeded) {
-            showToast(action === 'approve' ? "已發布到碎碎念牆。" : "已取消發布。", "success");
-        } else {
-            showToast("已送出更新，若畫面尚未變更，請稍後重新整理。", "info");
-        }
     } catch (err) {
-        console.error("更新審核狀態失敗", err);
-        showToast("連線發生異常，請確認網路或 Apps Script 設定。", "error");
-    } finally {
-        btn.disabled = false;
-        btn.textContent = oldText;
+        // 很可能是 CORS 重導向問題，GAS 仍可能成功執行
+        fetchError = err;
+        console.warn("fetch 拋出例外（可能是 GAS CORS 重導向，繼續驗證結果）：", err);
     }
+
+    // 不論 fetch 是否成功，都等待後重新載入資料，用資料本身來判斷操作結果
+    btn.textContent = "驗證中...";
+    await new Promise(r => setTimeout(r, 2000));
+    await loadSheetData();
+
+    const updated = allSubmissionsData.find(d => d.sourceId === sourceId && d.rowNum === rowNum);
+    const succeeded = updated && (action === 'approve' ? updated.isOk === true : updated.isOk === false);
+    if (succeeded) {
+        showToast(action === 'approve' ? "已發布到碎碎念牆。" : "已取消發布。", "success");
+    } else {
+        showToast("已送出更新，若畫面尚未變更，請稍後重新整理。", "info");
+    }
+
+    btn.disabled = false;
+    btn.textContent = oldText;
 }
 
 // ============================================================
