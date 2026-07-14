@@ -218,7 +218,6 @@ async function loadSourceData(source) {
 // ============================================================
 
 function refreshUI() {
-    renderSubmissionList();
     renderTopicToolbar();
     renderComplaintsWall();
     renderHomeSummary();
