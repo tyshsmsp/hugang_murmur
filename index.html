@@ -1,117 +1,259 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>虎崗碎碎念｜校園匿名報</title>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700;900&family=Noto+Sans+TC:wght@300;400;500&family=Special+Elite&display=swap" rel="stylesheet">
+    <title>虎崗碎碎念｜校園匿名報 V2</title>
+    <meta name="description" content="虎崗碎碎念是桃園高中校刊社經營的校園匿名留言牆，提供投稿、碎碎念、文藝專欄等多種匿名投稿管道。">
+    <meta name="theme-color" content="#0a0a1a">
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
 
-<div class="newspaper">
-    <header class="masthead">
-        <div class="masthead-top">
-            <span>桃高校刊社</span>
-            <span class="edition-badge">SPECIAL EDITION</span>
-            <span id="today-date"></span>
-        </div>
-        <div class="masthead-title" style="padding: 20px;">
-            <div class="masthead-main">虎崗碎碎念</div>
-            <div style="color: var(--stamp); letter-spacing: 4px;">本平台由桃園高中校刊社幹部管理 於平台發表之言論不代表桃園高中官方與校刊社立場</div>
-        </div>
-    </header>
+    <div class="app-shell">
+        <header class="masthead">
+            <div class="masthead-top">
+                <span>虎崗校刊社</span>
+                <span class="edition-badge">SPECIAL EDITION</span>
+                <span id="today-date"></span>
+            </div>
+            <div class="masthead-title">
+                <div class="masthead-main">虎崗碎碎念</div>
+                <div class="masthead-subtitle">本平台由桃園高中校刊社幹部管理 · 於平台發表之言論不代表桃園高中官方與校刊社立場</div>
+            </div>
+        </header>
 
-    <nav>
-        <button class="active" onclick="showPage('home')">首頁</button>
-        <button onclick="showPage('browse')">碎碎念牆</button>
-        <button onclick="showPage('submit')">投稿</button>
-        <button onclick="showPage('admin')">後台</button>
-    </nav>
+        <div class="content">
+            <!-- ===== 首頁 ===== -->
+            <div class="page active" id="page-home">
+                <div class="front-page">
+                    <div class="main-story">
+                        <div class="special-column">
+                            <span class="column-badge">SURVIVAL GUIDE</span>
+                            <h2>新生入學專題正在刊登中。</h2>
+                            <p>
+                                這裡收留校園裡各種想吐槽、想告白、想提醒、想求救的小聲音。<br>
+                                投稿會先經過後台審核，通過後才會出現在碎碎念牆。<br>
+                                已經加入文藝專欄等不同投稿專欄，後台會一起整理。
+                            </p>
+                            <div class="column-footer">
+                                <span>目前專欄：</span>
+                                <span class="tag">#新生入學專題</span>
+                                <span class="tag">#文藝專欄</span>
+                            </div>
+                        </div>
 
-    <div class="content">
-        <div class="page active" id="page-home">
-            <div class="front-page">
-                <div class="main-story">
-                    <div class="special-column">
-                        <span class="column-badge">SURVIVAL GUIDE</span>
-                        <h2 style="color: var(--red); font-size: 28px; margin-bottom: 10px;">新生入學專題正在刊登中。</h2>
-                        <p style="line-height: 1.6; color: var(--ink); font-weight: 600;">
-                            這裡收留校園裡各種想吐槽、想告白、想提醒、想求救的小聲音。<br>
-                            投稿會先經過後台審核，通過後才會出現在碎碎念牆。<br>
-                            已經加入文藝專欄等不同投稿專欄，後台會一起整理。
-                        </p>
-                        <div class="column-footer">
-                            目前專欄：
-                            <span style="color:var(--red)">#新生入學專題</span>
-                            <span style="color:var(--red)">#文藝專欄</span>
+                        <div class="stat-box">
+                            <div class="stat-num" id="home-total">0</div>
+                            <div class="stat-label">目前已發布投稿</div>
+                        </div>
+
+                        <h1 style="font-size: 22px; font-weight: 800; margin-bottom: 8px;">今日校園小報</h1>
+                        <p style="color: var(--text-secondary); line-height: 1.8; font-size: 14px;">
+                            虎崗碎碎念是一面匿名留言牆。想說什麼就說什麼，投稿後由後台審核刊登。</p>
+                        <button class="forms-btn" onclick="showPage('submit')">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 20h9" />
+                                <path
+                                    d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z" />
+                            </svg>
+                            我要投稿
+                        </button>
+                    </div>
+
+                    <div class="sidebar">
+                        <div class="countdown-container">
+                            <div class="countdown-label">距離開學倒數</div>
+                            <div id="countdown-timer">載入中...</div>
+                            <div class="countdown-note">每天都值得被記上一筆</div>
+                        </div>
+
+                        <h3>最新刊登</h3>
+                        <div id="home-sidebar">
+                            <div class="skeleton-card">
+                                <div class="skeleton-line"></div>
+                                <div class="skeleton-line"></div>
+                                <div class="skeleton-line"></div>
+                                <div class="skeleton-line"></div>
+                            </div>
+                            <div class="skeleton-card">
+                                <div class="skeleton-line"></div>
+                                <div class="skeleton-line"></div>
+                                <div class="skeleton-line"></div>
+                                <div class="skeleton-line"></div>
+                            </div>
                         </div>
                     </div>
-
-                    <h1 style="font-size: 24px; margin-bottom: 15px;">今日校園小報</h1>
-                    <p style="line-height: 1.8;">虎崗碎碎念是一面匿名留言牆，歡迎各路好漢分享祕笈。</p>
-
-                    <div class="stat-box">
-                        <div class="stat-num" id="home-total">0</div>
-                        <div style="font-size: 12px; letter-spacing: 2px;">目前已發布投稿</div>
-                    </div>
-                    <button class="forms-btn" onclick="showPage('submit')">我要投稿</button>
-                </div>
-
-                <div class="sidebar">
-                    <div class="countdown-container">
-                        <div style="font-size: 12px; margin-bottom: 8px; opacity: 0.8;">距離開學倒數</div>
-                        <div id="countdown-timer">載入中...</div>
-                        <div style="font-size: 11px; margin-top: 8px; opacity: 0.6;">每天都值得被記上一筆</div>
-                    </div>
-
-                    <h3 style="margin-bottom: 15px; border-bottom: 1px solid var(--ink);">最新刊登</h3>
-                    <div id="home-sidebar">讀取中...</div>
                 </div>
             </div>
-        </div>
 
-        <div class="page" id="page-browse">
-            <div class="section-head"><h2>碎碎念牆</h2></div>
-            <div class="topic-toolbar" id="topic-toolbar"></div>
-            <div id="complaints-wall"></div>
-        </div>
+            <!-- ===== 碎碎念牆 ===== -->
+            <div class="page" id="page-browse">
+                <div class="section-head">
+                    <h2>碎碎念牆</h2>
+                </div>
+                <div class="search-bar">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8" />
+                        <path d="m21 21-4.3-4.3" />
+                    </svg>
+                    <input type="text" id="search-input" placeholder="搜尋關鍵字..." oninput="handleSearch(this.value)">
+                </div>
+                <div class="topic-toolbar" id="topic-toolbar"></div>
+                <div id="complaints-wall">
+                    <div class="skeleton-card">
+                        <div class="skeleton-line"></div>
+                        <div class="skeleton-line"></div>
+                        <div class="skeleton-line"></div>
+                        <div class="skeleton-line"></div>
+                    </div>
+                    <div class="skeleton-card">
+                        <div class="skeleton-line"></div>
+                        <div class="skeleton-line"></div>
+                        <div class="skeleton-line"></div>
+                        <div class="skeleton-line"></div>
+                    </div>
+                    <div class="skeleton-card">
+                        <div class="skeleton-line"></div>
+                        <div class="skeleton-line"></div>
+                        <div class="skeleton-line"></div>
+                        <div class="skeleton-line"></div>
+                    </div>
+                </div>
+            </div>
 
-        <div class="page" id="page-submit">
-            <div class="section-head"><h2>我要投稿</h2></div>
-            <div class="submission-list" id="submission-list"></div>
-        </div>
+            <!-- ===== 投稿 ===== -->
+            <div class="page" id="page-submit">
+                <div class="section-head">
+                    <h2>我要投稿</h2>
+                </div>
+                <form id="submission-form" class="submission-form glass-card" onsubmit="handleFormSubmit(event)">
+                    <div class="form-row">
+                        <div class="form-field">
+                            <label for="submit-source">選擇投稿專欄</label>
+                            <select id="submit-source" class="field-input" onchange="updateFormPlaceholder()">
+                                <!-- JS 會在此動態載入專欄選項 -->
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label for="submit-to">收件人 / 對象</label>
+                            <input type="text" id="submit-to" class="field-input" placeholder="例如：全體同學、日常碎碎念..."
+                                required>
+                        </div>
+                    </div>
+                    <div class="form-field">
+                        <label for="submit-msg">投稿內容</label>
+                        <textarea id="submit-msg" class="field-input" rows="6" placeholder="寫下你想說的話..." required
+                            maxlength="500" oninput="updateCharCount()"></textarea>
+                        <div class="char-counter"><span id="char-count">0</span> / 500</div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-field">
+                            <label for="submit-name">您的暱稱</label>
+                            <input type="text" id="submit-name" class="field-input" placeholder="留空則預設為「匿名」">
+                        </div>
+                        <div class="form-field">
+                            <label for="submit-tag">主題標籤</label>
+                            <input type="text" id="submit-tag" class="field-input" placeholder="自訂標籤 (例如：#告白、#吐槽)">
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="forms-btn" id="submit-btn">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="m22 2-7 20-4-9-9-4Z" />
+                                <path d="M22 2 11 13" />
+                            </svg>
+                            送出投稿
+                        </button>
+                    </div>
+                </form>
+            </div>
 
-        <div class="page" id="page-admin">
-            <div id="admin-login-box">
-                <div style="max-width: 300px; margin: 40px auto; text-align: center; border: 2px solid var(--ink); padding: 20px; background: white;">
+            <!-- ===== 後台 ===== -->
+            <div class="page" id="page-admin">
+                <div id="admin-login-box" class="admin-login-box">
                     <h3>後台登入</h3>
-                    <input type="password" id="admin-pass" class="field-input" placeholder="輸入密碼" onkeypress="if(event.key === 'Enter') adminLogin()">
+                    <p class="login-subtitle">請輸入管理員密碼以進入審稿系統</p>
+                    <input type="password" id="admin-pass" class="field-input" placeholder="輸入密碼"
+                        onkeypress="if(event.key === 'Enter') adminLogin()">
                     <button class="forms-btn" style="width: 100%;" onclick="adminLogin()">登入</button>
                 </div>
+                <div id="admin-dashboard" style="display:none;"></div>
             </div>
-            <div id="admin-dashboard" style="display:none;"></div>
+        </div>
+
+        <footer>
+            虎崗校刊社 2026｜虎崗碎碎念保留最終刊登權
+        </footer>
+    </div>
+
+    <!-- 底部導覽 Tab Bar -->
+    <nav>
+        <button class="active" onclick="showPage('home')" id="nav-home">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" />
+                <path
+                    d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+            </svg>
+            首頁
+        </button>
+        <button onclick="showPage('browse')" id="nav-browse">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            碎碎念
+        </button>
+        <button onclick="showPage('submit')" id="nav-submit">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20h9" />
+                <path
+                    d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z" />
+            </svg>
+            投稿
+        </button>
+        <button onclick="showPage('admin')" id="nav-admin">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path
+                    d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                <circle cx="12" cy="12" r="3" />
+            </svg>
+            後台
+        </button>
+    </nav>
+
+    <!-- 發布確認 Dialog -->
+    <div class="confirm-overlay" id="publish-confirm" aria-hidden="true">
+        <div class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+            <div class="confirm-kicker">EDITOR'S DESK</div>
+            <h3 id="confirm-title">確認發布這則投稿？</h3>
+            <p>發布後，這則投稿會出現在公開牆面。請再次確認內容與所屬專欄是否適合刊登。</p>
+            <div class="confirm-preview" id="confirm-preview"></div>
+            <div class="confirm-actions">
+                <button class="admin-btn reject" onclick="closePublishConfirm()">再檢查一下</button>
+                <button class="admin-btn approve" id="confirm-publish-btn" onclick="confirmPublishPost()">確認發布</button>
+            </div>
         </div>
     </div>
 
-    <footer style="text-align:center; padding:20px; background:var(--paper-dark); font-size:11px;">
-        桃高校刊社 2026｜桃高校刊社保留最終刊登權
-    </footer>
-</div>
+    <!-- 回到頂部 -->
+    <button id="back-to-top" aria-label="回到頂部">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="m18 15-6-6-6 6" />
+        </svg>
+    </button>
 
-<div class="confirm-overlay" id="publish-confirm" aria-hidden="true">
-    <div class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
-        <div class="confirm-kicker">EDITOR'S DESK</div>
-        <h3 id="confirm-title">確認發布這則投稿？</h3>
-        <p>發布後，這則投稿會出現在公開牆面。請再次確認內容與所屬專欄是否適合刊登。</p>
-        <div class="confirm-preview" id="confirm-preview"></div>
-        <div class="confirm-actions">
-            <button class="admin-btn reject" onclick="closePublishConfirm()">再檢查一下</button>
-            <button class="admin-btn approve" id="confirm-publish-btn" onclick="confirmPublishPost()">確認發布</button>
-        </div>
-    </div>
-</div>
-
-<script src="script.js"></script>
+    <div id="toast-container" class="toast-container"></div>
+    <script src="script.js"></script>
 </body>
+
 </html>
