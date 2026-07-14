@@ -145,11 +145,22 @@ function loadCachedData() {
     }
 }
 
+// fetch with AbortController timeout (ms)
+async function fetchWithTimeout(url, options, timeoutMs) {
+    const controller = new AbortController();
+    const tid = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+        clearTimeout(tid);
+    }
+}
+
 async function loadSourceData(source) {
     if (!source.sheetId) return [];
 
     try {
-        const res = await fetch(getApiUrl(source.sheetId));
+        const res = await fetchWithTimeout(getApiUrl(source.sheetId), {}, 10000);
         const text = await res.text();
         const r = text.match(/google\.visualization\.Query\.setResponse\(([\s\S\w]+)\)/);
         if (!r) throw new Error("Google Sheets 回傳格式錯誤");
@@ -810,7 +821,11 @@ async function setPostStatus(btn, sourceId, rowNum, action) {
     // 不論 fetch 是否成功，都等待後重新載入資料，用資料本身來判斷操作結果
     btn.textContent = "驗證中...";
     await new Promise(r => setTimeout(r, 2000));
-    await loadSheetData();
+    // 設定最長 12 秒逾時，避免 loadSheetData 卡住導致畫面凍結
+    await Promise.race([
+        loadSheetData(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('reload timeout')), 12000))
+    ]).catch(err => console.warn('重新載入資料逾時或失敗：', err));
 
     const updated = allSubmissionsData.find(d => d.sourceId === sourceId && d.rowNum === rowNum);
     const succeeded = updated && (action === 'approve' ? updated.isOk === true : updated.isOk === false);
