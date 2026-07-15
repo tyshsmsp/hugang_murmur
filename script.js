@@ -17,8 +17,8 @@ var SOURCES = [
     },
     {
         id: 'literary',
-        title: '文藝專欄',
-        subtitle: '散文、短詩、小說片段、書寫練習與校園文學',
+        title: '虎崗文藝專欄',
+        subtitle: '散文、短詩、小說片段、書寫練習與校園文學(告白也行，如果你不介意讓管理員知道的話)',
         sheetId: '1ZL6lr4LK-09tevWUTOvwHeDO_iwqJBCiPhSj3ql5Bh4',
         formUrl: 'https://forms.gle/pakcKATufdwZXeQeA',
         gasUrl: 'https://script.google.com/macros/s/AKfycbxUBfOvk5si31wfytlRVsugSqjvQ_eUdGnq33qSKUHTloUcB516GB1b_MbgFK-gRGyokA/exec',
@@ -276,7 +276,7 @@ function updateFormPlaceholder() {
     
     if (source.id === 'literary') {
         msg.placeholder = "請寫下散文、短詩、小說片段或書寫練習內容...";
-        tag.placeholder = "自訂標籤 (例如：#散文、#詩集，留空則預設為 #文藝專欄)";
+        tag.placeholder = "自訂標籤 (例如：#散文、#詩集，留空則預設為 #虎崗文藝專欄)";
     } else {
         msg.placeholder = "校園日常、避坑指南、吐槽、告白或新生求問...";
         tag.placeholder = "自訂標籤 (例如：#求救、#告白，留空則預設為 #新生入學專題)";
