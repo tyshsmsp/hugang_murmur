@@ -8,6 +8,7 @@
     <meta name="description" content="虎崗碎碎念是桃園高中校刊社經營的校園匿名留言牆，提供投稿、碎碎念、文藝專欄等多種匿名投稿管道。">
     <meta name="theme-color" content="#0a0a1a">
     <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
 </head>
 
 <body>
@@ -17,7 +18,10 @@
             <div class="masthead-top">
                 <span>虎崗校刊社</span>
                 <span class="edition-badge">SPECIAL EDITION</span>
-                <span id="today-date"></span>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <button id="theme-toggle" class="theme-toggle-btn" onclick="toggleTheme()" aria-label="切換主題">🌓</button>
+                    <span id="today-date"></span>
+                </div>
             </div>
             <div class="masthead-title">
                 <div class="masthead-main">虎崗碎碎念</div>

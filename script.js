@@ -2,7 +2,6 @@
 // 虎崗碎碎念 V2 — Script
 // ============================================================
 
-var PASS_WORD = 'hugangmurmursmsp';
 var OK_TAG = 'ok';
 
 var SOURCES = [
@@ -34,6 +33,11 @@ var activeTopic = 'all';
 var pendingPublish = null;
 var searchQuery = '';
 
+// 後台專用暫存資料
+var adminAllSubmissions = [];
+var adminCommentsData = [];
+var adminActiveTab = 'posts'; // 'posts' | 'comments' | 'configs'
+
 // ============================================================
 // Initialization
 // ============================================================
@@ -42,12 +46,21 @@ window.onload = function () {
     const dateOpt = { year: 'numeric', month: 'long', day: 'numeric' };
     document.getElementById('today-date').textContent = new Date().toLocaleDateString('zh-TW', dateOpt);
 
+    applyPreferredTheme();
     startCountdown();
     // 優先從本地快取載入舊資料，實現秒開
     loadCachedData();
     populateSubmitSources();
     loadSheetData(); // 背景/非同步載入最新資料
     initBackToTop();
+    handleHashLink();
+
+    // 註冊 PWA Service Worker
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js')
+            .then(reg => console.log('Service Worker 註冊成功', reg))
+            .catch(err => console.log('Service Worker 註冊失敗', err));
+    }
 };
 
 // ============================================================
@@ -157,25 +170,24 @@ async function fetchWithTimeout(url, options, timeoutMs) {
 }
 
 async function loadSourceData(source) {
-    if (!source.sheetId) return [];
+    if (!source.gasUrl) return [];
 
     try {
-        const res = await fetchWithTimeout(getApiUrl(source.sheetId), {}, 10000);
-        const text = await res.text();
-        const r = text.match(/google\.visualization\.Query\.setResponse\(([\s\S\w]+)\)/);
-        if (!r) throw new Error("Google Sheets 回傳格式錯誤");
+        const res = await fetchWithTimeout(`${source.gasUrl}?action=getApproved`, {}, 10000);
+        const data = await res.json();
+        
+        if (data && data.error) {
+            console.error(`讀取 ${source.title} 錯誤:`, data.error);
+            return [];
+        }
 
-        const jsonData = JSON.parse(r[1]);
-        const rows = jsonData.table.rows || [];
+        if (!Array.isArray(data)) return [];
 
-        return rows.map((row, rIdx) => {
-            const c = row.c.map(cell => (cell && cell.v !== null) ? String(cell.v) : '');
-            const isApproved = c.some(val => val.toLowerCase().trim() === OK_TAG.toLowerCase());
-            const rowNum = rIdx + 2;
-            const postKey = `${source.id}:${rowNum}`;
+        return data.map((item) => {
+            const postKey = `${source.id}:${item.rowNum}`;
 
-            let likes = parseInt(c[8]) || 0;
-            let hearts = parseInt(c[9]) || 0;
+            let likes = item.likes;
+            let hearts = item.hearts;
 
             const likedList = JSON.parse(localStorage.getItem('liked_posts') || '[]');
             const heartedList = JSON.parse(localStorage.getItem('hearted_posts') || '[]');
@@ -195,18 +207,18 @@ async function loadSourceData(source) {
                 sourceId: source.id,
                 sourceTitle: source.title,
                 sourceBadge: source.badge,
-                time: c[0],
-                rowNum: rowNum,
+                time: item.time,
+                rowNum: item.rowNum,
                 postKey: postKey,
-                name: c[2] || '匿名',
-                to: c[3] || '未指定',
-                msg: c[4] || '',
-                tag: c[5] || source.title,
-                isOk: isApproved,
+                name: item.name || '匿名',
+                to: item.to || '未指定',
+                msg: item.msg || '',
+                tag: item.tag || source.title,
+                isOk: item.isOk,
                 likes: likes,
                 hearts: hearts
             };
-        }).filter(item => item.msg !== "");
+        });
     } catch (err) {
         console.error(`讀取 ${source.title} 失敗`, err);
         return [];
@@ -217,13 +229,14 @@ async function loadSourceData(source) {
 // UI Refresh
 // ============================================================
 
-function refreshUI() {
+async function refreshUI() {
     renderTopicToolbar();
     renderComplaintsWall();
     renderHomeSummary();
 
     const dashboard = document.getElementById('admin-dashboard');
     if (dashboard && dashboard.style.display === 'block') {
+        await loadAdminData();
         renderAdminDashboard();
     }
 }
@@ -445,13 +458,36 @@ function renderComplaintCard(d) {
                 <span class="${tagClass}">${escapeHTML(d.tag)}</span>
             </div>
 
-            <div class="reactions-bar">
-                <button class="reaction-btn ${isLiked ? 'active' : ''}" ${isLiked ? 'disabled' : ''} onclick="handleReaction(event, '${escapeJs(d.sourceId)}', ${d.rowNum}, 'like')">
-                    👍 <span class="reaction-count">${d.likes}</span>
+            <div class="reactions-bar" style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 14px;">
+                <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                    <button class="reaction-btn ${isLiked ? 'active' : ''}" ${isLiked ? 'disabled' : ''} onclick="handleReaction(event, '${escapeJs(d.sourceId)}', ${d.rowNum}, 'like')">
+                        👍 <span class="reaction-count">${d.likes}</span>
+                    </button>
+                    <button class="reaction-btn ${isHearted ? 'active' : ''}" ${isHearted ? 'disabled' : ''} onclick="handleReaction(event, '${escapeJs(d.sourceId)}', ${d.rowNum}, 'heart')">
+                        ❤️ <span class="reaction-count">${d.hearts}</span>
+                    </button>
+                    <button class="reaction-btn" onclick="toggleComments(event, '${escapeJs(d.sourceId)}', ${d.rowNum}, '${escapeJs(d.postKey)}')">
+                        💬 留言
+                    </button>
+                </div>
+                <button class="card-share-btn" onclick="copyShareLink(event, '${escapeJs(d.sourceId)}', ${d.rowNum}, '${escapeJs(d.postKey)}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                    分享
                 </button>
-                <button class="reaction-btn ${isHearted ? 'active' : ''}" ${isHearted ? 'disabled' : ''} onclick="handleReaction(event, '${escapeJs(d.sourceId)}', ${d.rowNum}, 'heart')">
-                    ❤️ <span class="reaction-count">${d.hearts}</span>
-                </button>
+            </div>
+
+            <!-- 留言展開區塊 -->
+            <div class="comments-section" id="comments-${d.sourceId}-${d.rowNum}">
+                <div class="comments-list" id="comments-list-${d.sourceId}-${d.rowNum}">
+                    <div style="color: var(--text-muted); font-size: 12px; text-align: center; padding: 8px 0;">載入留言中...</div>
+                </div>
+                <form class="comment-form" onsubmit="submitComment(event, '${escapeJs(d.sourceId)}', ${d.rowNum}, '${escapeJs(d.postKey)}')">
+                    <div class="comment-form-row">
+                        <input type="text" class="comment-input-name" id="comment-name-${d.sourceId}-${d.rowNum}" placeholder="您的暱稱 (選填)">
+                        <input type="text" class="comment-input-msg" id="comment-msg-${d.sourceId}-${d.rowNum}" placeholder="寫下留言..." required>
+                        <button type="submit" class="comment-submit-btn" id="comment-btn-${d.sourceId}-${d.rowNum}">送出</button>
+                    </div>
+                </form>
             </div>
 
             <div class="complaint-meta"><span>投稿人 ${escapeHTML(d.name)}</span><span>${formatTimestamp(d.time)}</span></div>
@@ -518,12 +554,47 @@ function showPage(name) {
 // Admin
 // ============================================================
 
-function adminLogin() {
-    if (document.getElementById('admin-pass').value === PASS_WORD) {
-        document.getElementById('admin-login-box').style.display = 'none';
-        renderAdminDashboard();
-    } else {
-        showToast('密碼錯誤！請再次確認您的管理密碼。', 'error');
+async function adminLogin() {
+    const pass = document.getElementById('admin-pass').value.trim();
+    if (!pass) {
+        showToast('請輸入密碼', 'warning');
+        return;
+    }
+
+    const btn = document.querySelector('#page-admin button');
+    if (!btn) return;
+    const oldHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '驗證中...';
+
+    try {
+        const source = getEnabledSources()[0];
+        if (!source) {
+            showToast('未找到啟用的專欄設定。', 'error');
+            return;
+        }
+
+        const res = await fetch(`${source.gasUrl}?action=getAll&pass=${encodeURIComponent(pass)}`);
+        const data = await res.json();
+
+        if (data && data.error === 'Unauthorized') {
+            showToast('密碼錯誤！請再次確認您的管理密碼。', 'error');
+        } else if (Array.isArray(data)) {
+            showToast('登入成功！', 'success');
+            sessionStorage.setItem('admin_pass', pass);
+            document.getElementById('admin-login-box').style.display = 'none';
+            adminActiveTab = 'posts';
+            await loadAdminData();
+            renderAdminDashboard();
+        } else {
+            showToast('登入失敗，請確認 Apps Script 部署正常。', 'error');
+        }
+    } catch (err) {
+        console.error("登入驗證錯誤", err);
+        showToast('登入連線發生異常，請稍後再試。', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = oldHTML;
     }
 }
 
@@ -597,6 +668,52 @@ function spawnParticles(btn, emoji) {
 // Admin Dashboard
 // ============================================================
 
+async function loadAdminData() {
+    const pass = sessionStorage.getItem('admin_pass');
+    if (!pass) return;
+
+    const sources = getEnabledSources();
+    const results = await Promise.all(sources.map(async (source) => {
+        if (!source.gasUrl) return [];
+        try {
+            const res = await fetch(`${source.gasUrl}?action=getAll&pass=${encodeURIComponent(pass)}`);
+            const data = await res.json();
+            if (Array.isArray(data)) {
+                return data.map(item => ({
+                    ...item,
+                    sourceId: source.id,
+                    sourceTitle: source.title,
+                    sourceBadge: source.badge,
+                    postKey: `${source.id}:${item.rowNum}`
+                }));
+            }
+        } catch (e) {
+            console.error(`後台讀取 ${source.title} 失敗`, e);
+        }
+        return [];
+    }));
+    adminAllSubmissions = results.flat();
+
+    const commentResults = await Promise.all(sources.map(async (source) => {
+        if (!source.gasUrl) return [];
+        try {
+            const res = await fetch(`${source.gasUrl}?action=getPendingComments&pass=${encodeURIComponent(pass)}`);
+            const data = await res.json();
+            if (Array.isArray(data)) {
+                return data.map(item => ({
+                    ...item,
+                    sourceId: source.id,
+                    sourceTitle: source.title
+                }));
+            }
+        } catch (e) {
+            console.error(`後台讀取 ${source.title} 留言失敗`, e);
+        }
+        return [];
+    }));
+    adminCommentsData = commentResults.flat();
+}
+
 function renderAdminDashboard() {
     const dashboard = document.getElementById('admin-dashboard');
     if (!dashboard) return;
@@ -606,35 +723,61 @@ function renderAdminDashboard() {
     let html = `
         <div class="admin-header">
             <h3>後台審稿室</h3>
-            <p>
-                這裡會同時讀取各專欄的 Google Sheets。每個專欄可以設定自己的表單、試算表與 Apps Script URL。
-            </p>
-            <div class="admin-source-settings">
-                ${getEnabledSources().map(renderAdminSourceSettings).join('')}
+            <p>這裡會同時讀取各專欄的 Google Sheets 進行管理。</p>
+            <div class="admin-tabs">
+                <button class="admin-tab ${adminActiveTab === 'posts' ? 'active' : ''}" onclick="setAdminTab('posts')">貼文審核</button>
+                <button class="admin-tab ${adminActiveTab === 'comments' ? 'active' : ''}" onclick="setAdminTab('comments')">留言審核</button>
+                <button class="admin-tab ${adminActiveTab === 'configs' ? 'active' : ''}" onclick="setAdminTab('configs')">專欄設定</button>
             </div>
         </div>
     `;
 
-    html += getEnabledSources().map(source => {
-        const list = [...allSubmissionsData]
-            .filter(d => d.sourceId === source.id)
-            .sort(sortByTimeDesc);
-
-        return `
-            <section class="admin-source-section">
-                <div class="topic-section-head">
-                    <h3>${escapeHTML(source.title)}</h3>
-                    <span>${list.length} 筆</span>
-                </div>
-                ${list.length === 0
-                    ? `<div class="empty-state">${source.sheetId ? '目前沒有投稿資料。' : '尚未設定試算表 ID。'}</div>`
-                    : `<div class="admin-list">${list.map(renderAdminCard).join('')}</div>`
-                }
-            </section>
+    if (adminActiveTab === 'configs') {
+        html += `
+            <div class="admin-source-settings">
+                ${getEnabledSources().map(renderAdminSourceSettings).join('')}
+            </div>
         `;
-    }).join('');
+    } else if (adminActiveTab === 'posts') {
+        html += getEnabledSources().map(source => {
+            const list = [...adminAllSubmissions]
+                .filter(d => d.sourceId === source.id)
+                .sort(sortByTimeDesc);
+
+            return `
+                <section class="admin-source-section">
+                    <div class="topic-section-head">
+                        <h3>${escapeHTML(source.title)} - 貼文</h3>
+                        <span>${list.length} 筆</span>
+                    </div>
+                    ${list.length === 0
+                        ? `<div class="empty-state">目前沒有投稿資料。</div>`
+                        : `<div class="admin-list">${list.map(renderAdminCard).join('')}</div>`
+                    }
+                </section>
+            `;
+        }).join('');
+    } else if (adminActiveTab === 'comments') {
+        const pendingList = adminCommentsData.filter(c => !c.isOk);
+        html += `
+            <div class="admin-comments-container">
+                <div class="topic-section-head">
+                    <h3>待審核留言</h3>
+                    <span>${pendingList.length} 筆</span>
+                </div>
+                ${pendingList.length === 0 
+                    ? '<div class="empty-state">目前沒有待審留言。</div>' 
+                    : `<div class="admin-list">${pendingList.map(renderAdminCommentCard).join('')}</div>`}
+            </div>
+        `;
+    }
 
     dashboard.innerHTML = html;
+}
+
+function setAdminTab(tab) {
+    adminActiveTab = tab;
+    renderAdminDashboard();
 }
 
 function renderAdminSourceSettings(source) {
@@ -701,12 +844,38 @@ function renderAdminCard(d) {
     `;
 }
 
+function renderAdminCommentCard(c) {
+    const statusText = c.isOk ? '已核准' : '待審核';
+    const statusClass = c.isOk ? 'approved' : 'pending';
+    const actionBtn = c.isOk
+        ? `<button class="admin-btn reject" style="padding: 6px 12px; font-size:11px;" onclick="setCommentStatus(this, '${escapeJs(c.sourceId)}', ${c.rowNum}, 'rejectComment')">取消核准</button>`
+        : `<button class="admin-btn approve" style="padding: 6px 12px; font-size:11px;" onclick="setCommentStatus(this, '${escapeJs(c.sourceId)}', ${c.rowNum}, 'approveComment')">核准</button>`;
+
+    return `
+        <div class="admin-comment-card">
+            <div class="admin-comment-header">
+                <span class="admin-status ${statusClass}">${statusText}</span>
+                <span style="font-size:11px; color:var(--text-muted);">${formatTimestamp(c.time)}</span>
+            </div>
+            <div class="admin-comment-name">留言人：${escapeHTML(c.name)}</div>
+            <div class="admin-comment-msg">${escapeHTML(c.msg)}</div>
+            <div class="admin-comment-meta">
+                <span>貼文 Key：<span class="admin-comment-ref">${escapeHTML(c.postKey)}</span></span>
+                <span>來源：${escapeHTML(c.sourceTitle)}</span>
+            </div>
+            <div class="admin-comment-actions">
+                ${actionBtn}
+            </div>
+        </div>
+    `;
+}
+
 // ============================================================
 // Publish Confirm Dialog
 // ============================================================
 
 function openPublishConfirm(btn, sourceId, rowNum) {
-    const item = allSubmissionsData.find(d => d.sourceId === sourceId && d.rowNum === rowNum);
+    const item = adminAllSubmissions.find(d => d.sourceId === sourceId && d.rowNum === rowNum);
     const overlay = document.getElementById('publish-confirm');
     const preview = document.getElementById('confirm-preview');
 
@@ -782,8 +951,9 @@ function saveSourceSettings(sourceId) {
 
 async function setPostStatus(btn, sourceId, rowNum, action) {
     const source = getStoredSource(sourceId);
-    if (!source || !source.gasUrl) {
-        showToast("請先設定此專欄的 Google Apps Script URL，才能更新審核狀態。", "warning");
+    const pass = sessionStorage.getItem('admin_pass');
+    if (!source || !source.gasUrl || !pass) {
+        showToast("授權憑證失效，請重新整理頁面登入後台。", "warning");
         return;
     }
 
@@ -791,20 +961,16 @@ async function setPostStatus(btn, sourceId, rowNum, action) {
     btn.disabled = true;
     btn.textContent = "處理中...";
 
-    // 發送請求：GAS 的 POST 回應在瀏覽器環境中會因 CORS 302 重導向而拋出例外，
-    // 但 GAS 本身通常已成功執行並寫入試算表。
-    // 因此無論 fetch 成功或失敗，我們都繼續等待並重新驗證試算表資料。
     let fetchError = null;
     try {
         const resp = await fetch(source.gasUrl, {
             method: 'POST',
-            body: JSON.stringify({ action: action, rowNum: rowNum, pass: PASS_WORD })
+            body: JSON.stringify({ action: action, rowNum: rowNum, pass: pass })
         });
 
         let result;
         try { result = await resp.json(); } catch (_) { result = {}; }
 
-        // 若 GAS 明確回傳錯誤（且非 CORS 造成），提早中止
         if (result.error) {
             showToast("伺服器回傳錯誤：" + result.error, "error");
             btn.disabled = false;
@@ -812,13 +978,10 @@ async function setPostStatus(btn, sourceId, rowNum, action) {
             return;
         }
     } catch (err) {
-        // 很可能是 CORS 重導向問題，GAS 仍可能成功執行
         fetchError = err;
         console.warn("fetch 拋出例外（可能是 GAS CORS 重導向，繼續驗證結果）：", err);
     }
 
-    // 不論 fetch 是否成功，都重試載入資料（最多 3 次，間隔 3 秒）
-    // 原因：Google Sheets gviz API 有伺服器端快取，更新後可能需等待數秒才回傳新資料
     btn.textContent = "驗證中...";
     let succeeded = false;
     const MAX_RETRIES = 3;
@@ -827,22 +990,242 @@ async function setPostStatus(btn, sourceId, rowNum, action) {
         await Promise.race([
             loadSheetData(),
             new Promise((_, reject) => setTimeout(() => reject(new Error('reload timeout')), 12000))
-        ]).catch(err => console.warn('重新載入資料逾時或失敗：', err));
+        ]).catch(err => console.warn('重新載入資料失敗：', err));
+
+        // Reload admin data as well
+        await loadAdminData();
 
         const updated = allSubmissionsData.find(d => d.sourceId === sourceId && d.rowNum === rowNum);
         succeeded = updated && (action === 'approve' ? updated.isOk === true : updated.isOk === false);
         if (succeeded) break;
-        console.log(`第 ${attempt + 1} 次驗證未確認，${attempt < MAX_RETRIES - 1 ? '繼續重試...' : '已達最大重試次數'}`);
+        console.log(`第 ${attempt + 1} 次驗證未確認，繼續重試...`);
     }
 
     if (succeeded) {
         showToast(action === 'approve' ? "已發布到碎碎念牆。" : "已取消發布。", "success");
     } else {
-        showToast("Google Sheets 快取尚未更新，投稿已記錄——請等待 30 秒後畫面自動刷新，或手動重新整理頁面。", "info");
+        showToast("試算表快取延遲，後台已成功送出指令——請等待數秒後重新整理。", "info");
     }
 
     btn.disabled = false;
     btn.textContent = oldText;
+    renderAdminDashboard();
+}
+
+// ============================================================
+// Set Comment Status (Approve / Reject)
+// ============================================================
+
+async function setCommentStatus(btn, sourceId, rowNum, action) {
+    const source = getStoredSource(sourceId);
+    const pass = sessionStorage.getItem('admin_pass');
+    if (!source || !source.gasUrl || !pass) {
+        showToast("授權憑證失效，請重新登入。", "warning");
+        return;
+    }
+
+    const oldText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "處理中...";
+
+    try {
+        const resp = await fetch(source.gasUrl, {
+            method: 'POST',
+            body: JSON.stringify({ action: action, rowNum: rowNum, pass: pass })
+        });
+
+        let result = {};
+        try { result = await resp.json(); } catch (_) {}
+
+        if (result.error) {
+            showToast("後台錯誤：" + result.error, "error");
+        } else if (result.success) {
+            showToast(action === 'approveComment' ? "留言已核准顯示。" : "已拒絕留言並刪除。", "success");
+            await loadAdminData();
+            renderAdminDashboard();
+        } else {
+            showToast("更新狀態失敗。", "error");
+        }
+    } catch (err) {
+        console.warn("CORS 重導向，繼續更新資料...", err);
+        await new Promise(r => setTimeout(r, 2500));
+        await loadAdminData();
+        renderAdminDashboard();
+        showToast("狀態已送出更新，正刷新資料庫...", "info");
+    } finally {
+        btn.disabled = false;
+        btn.textContent = oldText;
+    }
+}
+
+// ============================================================
+// Comments Public Handler
+// ============================================================
+
+async function toggleComments(event, sourceId, rowNum, postKey) {
+    if (event) event.stopPropagation();
+    const section = document.getElementById(`comments-${sourceId}-${rowNum}`);
+    if (!section) return;
+
+    const isActive = section.classList.toggle('active');
+    if (isActive) {
+        await loadComments(sourceId, rowNum, postKey);
+    }
+}
+
+async function loadComments(sourceId, rowNum, postKey) {
+    const listDiv = document.getElementById(`comments-list-${sourceId}-${rowNum}`);
+    if (!listDiv) return;
+
+    const source = getStoredSource(sourceId);
+    if (!source || !source.gasUrl) {
+        listDiv.innerHTML = '<div style="color: var(--text-muted); font-size:12px; text-align:center;">此專欄未設定 API</div>';
+        return;
+    }
+
+    try {
+        const res = await fetch(`${source.gasUrl}?action=getComments&postKey=${encodeURIComponent(postKey)}`);
+        const comments = await res.json();
+
+        if (comments && comments.error) {
+            listDiv.innerHTML = `<div style="color: var(--text-muted); font-size:12px; text-align:center;">${escapeHTML(comments.error)}</div>`;
+            return;
+        }
+
+        if (!Array.isArray(comments) || comments.length === 0) {
+            listDiv.innerHTML = '<div style="color: var(--text-muted); font-size:12px; text-align:center; padding: 12px 0;">尚無已審核留言，快來搶沙發！</div>';
+            return;
+        }
+
+        listDiv.innerHTML = comments.map(c => `
+            <div class="comment-item">
+                <div class="comment-item-header">
+                    <span class="comment-item-name">${escapeHTML(c.name)}</span>
+                    <span>${formatTimestamp(c.time)}</span>
+                </div>
+                <div class="comment-item-body">${escapeHTML(c.msg)}</div>
+            </div>
+        `).join('');
+    } catch (err) {
+        console.error("載入留言失敗", err);
+        listDiv.innerHTML = '<div style="color: var(--text-muted); font-size:12px; text-align:center;">載入留言失敗，請稍後再試。</div>';
+    }
+}
+
+async function submitComment(event, sourceId, rowNum, postKey) {
+    if (event) event.preventDefault();
+
+    const nameInput = document.getElementById(`comment-name-${sourceId}-${rowNum}`);
+    const msgInput = document.getElementById(`comment-msg-${sourceId}-${rowNum}`);
+    const submitBtn = document.getElementById(`comment-btn-${sourceId}-${rowNum}`);
+
+    if (!msgInput || !msgInput.value.trim()) return;
+
+    const name = nameInput.value.trim() || "匿名";
+    const msg = msgInput.value.trim();
+
+    const source = getStoredSource(sourceId);
+    if (!source || !source.gasUrl) {
+        showToast("該專欄尚未設定 API，無法送出留言。", "error");
+        return;
+    }
+
+    // Cooldown check (30 seconds)
+    const lastSubmitKey = 'last_comment_submit_time';
+    const lastSubmit = parseInt(localStorage.getItem(lastSubmitKey) || '0');
+    const now = Date.now();
+    if (now - lastSubmit < 30000) {
+        const waitSec = Math.ceil((30000 - (now - lastSubmit)) / 1000);
+        showToast(`留言冷卻中 (請等待 ${waitSec} 秒)`, "warning");
+        return;
+    }
+
+    submitBtn.disabled = true;
+    const oldText = submitBtn.textContent;
+    submitBtn.textContent = "...";
+
+    try {
+        const resp = await fetch(source.gasUrl, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: 'submitComment',
+                postKey: postKey,
+                name: name,
+                msg: msg
+            })
+        });
+        let result = {};
+        try { result = await resp.json(); } catch (_) {}
+
+        if (result.success) {
+            showToast("留言成功！已送至後台進行審核，核准後將會顯示。", "success");
+            msgInput.value = "";
+            nameInput.value = "";
+            localStorage.setItem(lastSubmitKey, String(now));
+        } else {
+            showToast("留言失敗：" + (result.error || "未知錯誤"), "error");
+        }
+    } catch (err) {
+        console.error("送出留言失敗", err);
+        showToast("連線異常，請稍後再試。", "error");
+    } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = oldText;
+    }
+}
+
+// ============================================================
+// Share Links & Themes
+// ============================================================
+
+function copyShareLink(event, sourceId, rowNum, postKey) {
+    if (event) event.stopPropagation();
+    const link = `${window.location.origin}${window.location.pathname}#post-${sourceId}-${rowNum}`;
+
+    navigator.clipboard.writeText(link).then(() => {
+        showToast("已複製貼文分享連結！可直接分享給同學。", "success");
+    }).catch(err => {
+        console.error("複製連結失敗", err);
+        showToast("複製連結失敗，請手動複製網址。", "error");
+    });
+}
+
+function handleHashLink() {
+    const hash = window.location.hash;
+    if (!hash || !hash.startsWith('#post-')) return;
+
+    const parts = hash.substring(6).split('-'); // [sourceId, rowNum]
+    if (parts.length < 2) return;
+
+    const sourceId = parts[0];
+    const rowNum = parts[1];
+
+    showPage('browse');
+
+    setTimeout(() => {
+        const card = document.querySelector(`#comments-${sourceId}-${rowNum}`)?.closest('.complaint-card');
+        if (card) {
+            card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            card.classList.remove('highlighted');
+            void card.offsetWidth; // force reflow
+            card.classList.add('highlighted');
+        }
+    }, 1200);
+}
+
+function toggleTheme() {
+    const isLight = document.body.classList.toggle('light-theme');
+    localStorage.setItem('theme', isLight ? 'light' : 'dark');
+}
+
+function applyPreferredTheme() {
+    const savedTheme = localStorage.getItem('theme');
+    const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+    if (savedTheme === 'light' || (!savedTheme && prefersLight)) {
+        document.body.classList.add('light-theme');
+    } else {
+        document.body.classList.remove('light-theme');
+    }
 }
 
 // ============================================================
@@ -948,7 +1331,6 @@ function showToast(message, type = 'info', duration = 3500) {
         <button class="toast-close" aria-label="關閉提示">&times;</button>
     `;
 
-    // 點擊關閉按鈕時手動關閉
     const closeBtn = toast.querySelector('.toast-close');
     closeBtn.addEventListener('click', () => {
         toast.classList.add('toast-fade-out');
@@ -959,7 +1341,6 @@ function showToast(message, type = 'info', duration = 3500) {
 
     container.appendChild(toast);
 
-    // 自動定時移除
     setTimeout(() => {
         if (toast.parentElement) {
             toast.classList.add('toast-fade-out');

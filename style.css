@@ -58,6 +58,50 @@
     --nav-height: 68px;
 }
 
+/* --- Light/Paper Theme Overrides --- */
+.light-theme {
+    --bg-primary: #fbfbf8;
+    --bg-secondary: #f4f3ef;
+    --bg-card: rgba(0, 0, 0, 0.03);
+    --bg-card-hover: rgba(0, 0, 0, 0.05);
+    --bg-glass: rgba(0, 0, 0, 0.03);
+    --bg-glass-strong: rgba(0, 0, 0, 0.06);
+    --border-glass: rgba(0, 0, 0, 0.08);
+    --border-glass-hover: rgba(0, 0, 0, 0.15);
+
+    --text-primary: #1c1c1a;
+    --text-secondary: rgba(28, 28, 26, 0.7);
+    --text-muted: rgba(28, 28, 26, 0.45);
+
+    --accent-purple: #7c3aed;
+    --accent-purple-dim: rgba(124, 58, 237, 0.12);
+    --accent-cyan: #0891b2;
+    --accent-cyan-dim: rgba(8, 145, 178, 0.1);
+    --accent-pink: #db2777;
+    --accent-pink-dim: rgba(219, 39, 119, 0.1);
+    --accent-gold: #d97706;
+    --accent-gold-dim: rgba(217, 119, 6, 0.15);
+    --accent-green: #059669;
+    --accent-red: #dc2626;
+
+    --border-double: 4px double rgba(0, 0, 0, 0.15);
+    --border-double-active: 4px double var(--accent-purple);
+}
+
+body.light-theme::before {
+    background: 
+        radial-gradient(ellipse 80% 60% at 20% 10%, rgba(124, 58, 237, 0.05) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 80% at 80% 90%, rgba(8, 145, 178, 0.04) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 50% at 50% 50%, rgba(219, 39, 119, 0.03) 0%, transparent 60%);
+}
+
+body.light-theme::after {
+    background-image: 
+        linear-gradient(rgba(251, 251, 248, 0) 50%, rgba(0, 0, 0, 0.03) 50%),
+        url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+    opacity: 0.8;
+}
+
 /* --- Reset & Base --- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -1533,3 +1577,262 @@ footer {
     from { opacity: 1; transform: translateY(0) scale(1); }
     to { opacity: 0; transform: translateY(-15px) scale(0.9); }
 }
+
+/* --- Theme Toggle Button --- */
+.theme-toggle-btn {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass);
+    color: var(--text-primary);
+    cursor: pointer;
+    font-size: 16px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition-fast);
+}
+.theme-toggle-btn:hover {
+    background: var(--bg-glass-strong);
+    border-color: var(--accent-purple);
+    transform: scale(1.05);
+}
+
+/* --- Comments System Styles --- */
+.comments-section {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--border-glass-hover);
+    display: none;
+}
+.comments-section.active {
+    display: block;
+    animation: slideDown 0.3s ease-out;
+}
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.comments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 14px;
+    max-height: 250px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+.comments-list::-webkit-scrollbar {
+    width: 4px;
+}
+
+.comment-item {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+}
+.light-theme .comment-item {
+    background: rgba(0, 0, 0, 0.015);
+}
+
+.comment-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-bottom: 4px;
+}
+.comment-item-name {
+    font-weight: 700;
+    color: var(--accent-cyan);
+}
+.comment-item-body {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+}
+
+.comment-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 12px;
+}
+.comment-form-row {
+    display: flex;
+    gap: 8px;
+}
+.comment-input-name {
+    width: 120px;
+    padding: 8px 12px;
+    font-size: 12px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    border: 1px solid var(--border-glass);
+    color: var(--text-primary);
+    outline: none;
+}
+.comment-input-msg {
+    flex: 1;
+    padding: 8px 12px;
+    font-size: 12px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-card);
+    border: 1px solid var(--border-glass);
+    color: var(--text-primary);
+    outline: none;
+    resize: none;
+    height: 35px;
+}
+.comment-input-name:focus,
+.comment-input-msg:focus {
+    border-color: var(--accent-purple);
+}
+.comment-submit-btn {
+    padding: 8px 16px;
+    font-size: 12px;
+    border-radius: var(--radius-sm);
+    background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink));
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-weight: 700;
+    transition: var(--transition-fast);
+}
+.comment-submit-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(168, 85, 247, 0.25);
+}
+.comment-submit-btn:disabled {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-muted);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+/* --- Card Share Button --- */
+.card-share-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    padding: 4px;
+    transition: var(--transition-fast);
+}
+.card-share-btn:hover {
+    color: var(--accent-pink);
+}
+.card-share-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* --- Highlight Animation --- */
+@keyframes highlightFlash {
+    0% { box-shadow: 0 0 0 0px rgba(168, 85, 247, 0); border-color: var(--border-glass); }
+    30% { box-shadow: 0 0 40px 10px rgba(168, 85, 247, 0.5); border-color: var(--accent-purple); }
+    100% { box-shadow: 0 0 0 0px rgba(168, 85, 247, 0); border-color: var(--border-glass); }
+}
+.complaint-card.highlighted {
+    animation: highlightFlash 2s cubic-bezier(0.25, 1, 0.5, 1) 2;
+    border-color: var(--accent-purple);
+}
+
+/* --- Admin Tabs & Comment Moderation --- */
+.admin-tabs {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border-glass);
+    padding-bottom: 8px;
+}
+.admin-tab {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 8px 16px;
+    position: relative;
+    font-family: 'Noto Sans TC', sans-serif;
+    transition: var(--transition-fast);
+}
+.admin-tab:hover {
+    color: var(--text-primary);
+}
+.admin-tab.active {
+    color: var(--accent-purple);
+}
+.admin-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -9px;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--accent-purple);
+    border-radius: 4px 4px 0 0;
+}
+
+.admin-comments-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.admin-comment-card {
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--radius-md);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    transition: var(--transition-fast);
+}
+.admin-comment-card:hover {
+    border-color: var(--border-glass-hover);
+}
+.admin-comment-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: var(--text-muted);
+}
+.admin-comment-name {
+    font-weight: 700;
+    color: var(--accent-cyan);
+}
+.admin-comment-msg {
+    font-size: 13.5px;
+    color: var(--text-secondary);
+    white-space: pre-wrap;
+    line-height: 1.6;
+}
+.admin-comment-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    border-top: 1px solid var(--border-glass);
+    padding-top: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.admin-comment-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+}
+
