@@ -851,6 +851,12 @@ function renderAdminCommentCard(c) {
         ? `<button class="admin-btn reject" style="padding: 6px 12px; font-size:11px;" onclick="setCommentStatus(this, '${escapeJs(c.sourceId)}', ${c.rowNum}, 'rejectComment')">取消核准</button>`
         : `<button class="admin-btn approve" style="padding: 6px 12px; font-size:11px;" onclick="setCommentStatus(this, '${escapeJs(c.sourceId)}', ${c.rowNum}, 'approveComment')">核准</button>`;
 
+    // 尋找對應的原始貼文以提供懸停預覽
+    const parentPost = adminAllSubmissions.find(p => p.postKey === c.postKey);
+    const postPreview = parentPost 
+        ? `【對象】${parentPost.to}\n【內容】${parentPost.msg.length > 120 ? parentPost.msg.slice(0, 120) + '...' : parentPost.msg}`
+        : '找不到對應的原始貼文 (可能已被刪除)';
+
     return `
         <div class="admin-comment-card">
             <div class="admin-comment-header">
@@ -860,7 +866,7 @@ function renderAdminCommentCard(c) {
             <div class="admin-comment-name">留言人：${escapeHTML(c.name)}</div>
             <div class="admin-comment-msg">${escapeHTML(c.msg)}</div>
             <div class="admin-comment-meta">
-                <span>貼文 Key：<span class="admin-comment-ref">${escapeHTML(c.postKey)}</span></span>
+                <span>貼文 Key：<span class="admin-comment-ref" data-tooltip="${escapeHTML(postPreview)}">${escapeHTML(c.postKey)}</span></span>
                 <span>來源：${escapeHTML(c.sourceTitle)}</span>
             </div>
             <div class="admin-comment-actions">

@@ -1836,3 +1836,45 @@ footer {
     margin-top: 4px;
 }
 
+/* --- Admin Comment Tooltip --- */
+.admin-comment-ref {
+    position: relative;
+    cursor: help;
+    border-bottom: 1px dashed var(--accent-cyan);
+    color: var(--accent-cyan);
+    font-weight: bold;
+}
+.admin-comment-ref::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 125%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(18, 18, 42, 0.95);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--border-glass-hover);
+    color: var(--text-primary);
+    padding: 8px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    white-space: pre-wrap;
+    width: 280px;
+    box-shadow: var(--shadow-lg);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--transition-fast), transform var(--transition-fast);
+    z-index: 100;
+    text-align: left;
+    line-height: 1.5;
+    font-family: var(--font-sans);
+}
+.admin-comment-ref:hover::after {
+    opacity: 1;
+    transform: translate(-50%, -4px);
+}
+.light-theme .admin-comment-ref::after {
+    background: rgba(244, 243, 239, 0.98);
+    color: var(--text-primary);
+    border-color: rgba(0, 0, 0, 0.15);
+}
+
