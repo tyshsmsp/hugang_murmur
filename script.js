@@ -17,8 +17,8 @@ var SOURCES = [
     },
     {
         id: 'literary',
-        title: '虎崗文藝專欄',
-        subtitle: '散文、短詩、小說片段、書寫練習與校園文學(告白也行，如果你不介意讓管理員知道的話)',
+        title: '文藝專欄',
+        subtitle: '散文、短詩、小說片段、書寫練習與校園文學',
         sheetId: '1ZL6lr4LK-09tevWUTOvwHeDO_iwqJBCiPhSj3ql5Bh4',
         formUrl: 'https://forms.gle/pakcKATufdwZXeQeA',
         gasUrl: 'https://script.google.com/macros/s/AKfycbxUBfOvk5si31wfytlRVsugSqjvQ_eUdGnq33qSKUHTloUcB516GB1b_MbgFK-gRGyokA/exec',
@@ -216,7 +216,8 @@ async function loadSourceData(source) {
                 tag: item.tag || source.title,
                 isOk: item.isOk,
                 likes: likes,
-                hearts: hearts
+                hearts: hearts,
+                comments: item.comments || []
             };
         });
     } catch (err) {
@@ -276,7 +277,7 @@ function updateFormPlaceholder() {
     
     if (source.id === 'literary') {
         msg.placeholder = "請寫下散文、短詩、小說片段或書寫練習內容...";
-        tag.placeholder = "自訂標籤 (例如：#散文、#詩集，留空則預設為 #虎崗文藝專欄)";
+        tag.placeholder = "自訂標籤 (例如：#散文、#詩集，留空則預設為 #文藝專欄)";
     } else {
         msg.placeholder = "校園日常、避坑指南、吐槽、告白或新生求問...";
         tag.placeholder = "自訂標籤 (例如：#求救、#告白，留空則預設為 #新生入學專題)";
@@ -450,6 +451,19 @@ function renderComplaintCard(d) {
     const isLiked = likedList.includes(d.postKey);
     const isHearted = heartedList.includes(d.postKey);
 
+    const commentsCount = d.comments ? d.comments.length : 0;
+    const commentsHtml = commentsCount > 0
+        ? d.comments.map(c => `
+            <div class="comment-item">
+                <div class="comment-item-header">
+                    <span class="comment-item-name">${escapeHTML(c.name)}</span>
+                    <span>${formatTimestamp(c.time)}</span>
+                </div>
+                <div class="comment-item-body">${escapeHTML(c.msg)}</div>
+            </div>
+        `).join('')
+        : '<div style="color: var(--text-muted); font-size:12px; text-align:center; padding: 12px 0;">尚無已審核留言，快來搶沙發！</div>';
+
     return `
         <div class="${cardClass}">
             <div class="complaint-cat">${escapeHTML(d.sourceTitle)} / To: ${escapeHTML(d.to)}</div>
@@ -467,7 +481,7 @@ function renderComplaintCard(d) {
                         ❤️ <span class="reaction-count">${d.hearts}</span>
                     </button>
                     <button class="reaction-btn" onclick="toggleComments(event, '${escapeJs(d.sourceId)}', ${d.rowNum}, '${escapeJs(d.postKey)}')">
-                        💬 留言
+                        💬 留言 ${commentsCount > 0 ? `(${commentsCount})` : ''}
                     </button>
                 </div>
                 <button class="card-share-btn" onclick="copyShareLink(event, '${escapeJs(d.sourceId)}', ${d.rowNum}, '${escapeJs(d.postKey)}')">
@@ -477,9 +491,9 @@ function renderComplaintCard(d) {
             </div>
 
             <!-- 留言展開區塊 -->
-            <div class="comments-section" id="comments-${d.sourceId}-${d.rowNum}">
+            <div class="comments-section ${commentsCount > 0 ? 'active' : ''}" id="comments-${d.sourceId}-${d.rowNum}">
                 <div class="comments-list" id="comments-list-${d.sourceId}-${d.rowNum}">
-                    <div style="color: var(--text-muted); font-size: 12px; text-align: center; padding: 8px 0;">載入留言中...</div>
+                    ${commentsHtml}
                 </div>
                 <form class="comment-form" onsubmit="submitComment(event, '${escapeJs(d.sourceId)}', ${d.rowNum}, '${escapeJs(d.postKey)}')">
                     <div class="comment-form-row">
@@ -1068,54 +1082,11 @@ async function setCommentStatus(btn, sourceId, rowNum, action) {
 // Comments Public Handler
 // ============================================================
 
-async function toggleComments(event, sourceId, rowNum, postKey) {
+function toggleComments(event, sourceId, rowNum, postKey) {
     if (event) event.stopPropagation();
     const section = document.getElementById(`comments-${sourceId}-${rowNum}`);
     if (!section) return;
-
-    const isActive = section.classList.toggle('active');
-    if (isActive) {
-        await loadComments(sourceId, rowNum, postKey);
-    }
-}
-
-async function loadComments(sourceId, rowNum, postKey) {
-    const listDiv = document.getElementById(`comments-list-${sourceId}-${rowNum}`);
-    if (!listDiv) return;
-
-    const source = getStoredSource(sourceId);
-    if (!source || !source.gasUrl) {
-        listDiv.innerHTML = '<div style="color: var(--text-muted); font-size:12px; text-align:center;">此專欄未設定 API</div>';
-        return;
-    }
-
-    try {
-        const res = await fetch(`${source.gasUrl}?action=getComments&postKey=${encodeURIComponent(postKey)}`);
-        const comments = await res.json();
-
-        if (comments && comments.error) {
-            listDiv.innerHTML = `<div style="color: var(--text-muted); font-size:12px; text-align:center;">${escapeHTML(comments.error)}</div>`;
-            return;
-        }
-
-        if (!Array.isArray(comments) || comments.length === 0) {
-            listDiv.innerHTML = '<div style="color: var(--text-muted); font-size:12px; text-align:center; padding: 12px 0;">尚無已審核留言，快來搶沙發！</div>';
-            return;
-        }
-
-        listDiv.innerHTML = comments.map(c => `
-            <div class="comment-item">
-                <div class="comment-item-header">
-                    <span class="comment-item-name">${escapeHTML(c.name)}</span>
-                    <span>${formatTimestamp(c.time)}</span>
-                </div>
-                <div class="comment-item-body">${escapeHTML(c.msg)}</div>
-            </div>
-        `).join('');
-    } catch (err) {
-        console.error("載入留言失敗", err);
-        listDiv.innerHTML = '<div style="color: var(--text-muted); font-size:12px; text-align:center;">載入留言失敗，請稍後再試。</div>';
-    }
+    section.classList.toggle('active');
 }
 
 async function submitComment(event, sourceId, rowNum, postKey) {
