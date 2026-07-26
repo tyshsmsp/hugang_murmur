@@ -33,6 +33,17 @@ var activeTopic = 'all';
 var pendingPublish = null;
 var searchQuery = '';
 
+// 留言區塊展開狀態與未送出草稿紀錄 (避免背景刷新導致輸入中斷或閃退)
+var openCommentSections = new Set();
+var commentDrafts = {}; // { [postKey]: { name: '', msg: '' } }
+
+function saveCommentDraft(postKey, field, value) {
+    if (!commentDrafts[postKey]) {
+        commentDrafts[postKey] = { name: '', msg: '' };
+    }
+    commentDrafts[postKey][field] = value;
+}
+
 // 後台專用暫存資料
 var adminAllSubmissions = [];
 var adminCommentsData = [];
@@ -132,8 +143,14 @@ async function loadSheetData() {
     const sources = getEnabledSources();
     const results = await Promise.all(sources.map(loadSourceData));
 
-    allSubmissionsData = results.flat();
-    complaintsData = allSubmissionsData.filter(item => item.isOk === true);
+    const newData = results.flat();
+    const newComplaints = newData.filter(item => item.isOk === true);
+
+    // 比對內容是否有真實變更
+    const isChanged = JSON.stringify(newComplaints) !== JSON.stringify(complaintsData);
+
+    allSubmissionsData = newData;
+    complaintsData = newComplaints;
 
     // 將資料存入快取
     try {
@@ -142,7 +159,19 @@ async function loadSheetData() {
         console.error("寫入快取失敗", e);
     }
 
-    refreshUI();
+    if (isChanged) {
+        // 如果使用者正在留言輸入框中打字，暫緩背景自動重繪 UI 以避免輸入閃退
+        const activeEl = document.activeElement;
+        const isUserTypingInWall = activeEl && activeEl.closest('#complaints-wall') &&
+            (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
+
+        if (isUserTypingInWall) {
+            console.log("使用者正在輸入留言，暫緩背景自動重繪 UI");
+            return;
+        }
+
+        refreshUI(false);
+    }
 }
 
 function loadCachedData() {
@@ -230,9 +259,9 @@ async function loadSourceData(source) {
 // UI Refresh
 // ============================================================
 
-async function refreshUI() {
+async function refreshUI(triggerAnimation = true) {
     renderTopicToolbar();
-    renderComplaintsWall();
+    renderComplaintsWall(triggerAnimation);
     renderHomeSummary();
 
     const dashboard = document.getElementById('admin-dashboard');
@@ -372,9 +401,21 @@ function renderTopicToolbar() {
 // Render: Complaints Wall
 // ============================================================
 
-function renderComplaintsWall() {
+function renderComplaintsWall(triggerAnimation = true) {
     const wall = document.getElementById('complaints-wall');
     if (!wall) return;
+
+    // 紀錄當前獲得焦點的 input/textarea 元素與游標位置，避免 DOM 刷新破壞輸入體驗
+    const activeEl = document.activeElement;
+    const activeId = (activeEl && activeEl.id && wall.contains(activeEl)) ? activeEl.id : null;
+    let selectionStart = null;
+    let selectionEnd = null;
+    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) {
+        try {
+            selectionStart = activeEl.selectionStart;
+            selectionEnd = activeEl.selectionEnd;
+        } catch (_) {}
+    }
 
     let showList = [...complaintsData].sort(sortByTimeDesc);
 
@@ -417,13 +458,30 @@ function renderComplaintsWall() {
         wall.innerHTML = renderSourceSection(source, filteredList);
     }
 
+    // 還原焦點與游標
+    if (activeId) {
+        const restoredEl = document.getElementById(activeId);
+        if (restoredEl) {
+            restoredEl.focus();
+            if (selectionStart !== null && selectionEnd !== null) {
+                try {
+                    restoredEl.setSelectionRange(selectionStart, selectionEnd);
+                } catch (_) {}
+            }
+        }
+    }
+
     // Trigger card entrance animations
-    requestAnimationFrame(() => {
-        const cards = wall.querySelectorAll('.complaint-card');
-        cards.forEach((card, i) => {
-            setTimeout(() => card.classList.add('visible'), i * 60);
+    const cards = wall.querySelectorAll('.complaint-card');
+    if (triggerAnimation) {
+        requestAnimationFrame(() => {
+            cards.forEach((card, i) => {
+                setTimeout(() => card.classList.add('visible'), i * 60);
+            });
         });
-    });
+    } else {
+        cards.forEach(card => card.classList.add('visible'));
+    }
 }
 
 function renderSourceSection(source, items) {
@@ -452,6 +510,9 @@ function renderComplaintCard(d) {
     const isHearted = heartedList.includes(d.postKey);
 
     const commentsCount = d.comments ? d.comments.length : 0;
+    const isCommentOpen = openCommentSections.has(d.postKey) || commentsCount > 0;
+    const draft = commentDrafts[d.postKey] || { name: '', msg: '' };
+
     const commentsHtml = commentsCount > 0
         ? d.comments.map(c => `
             <div class="comment-item">
@@ -491,14 +552,14 @@ function renderComplaintCard(d) {
             </div>
 
             <!-- 留言展開區塊 -->
-            <div class="comments-section ${commentsCount > 0 ? 'active' : ''}" id="comments-${d.sourceId}-${d.rowNum}">
+            <div class="comments-section ${isCommentOpen ? 'active' : ''}" id="comments-${d.sourceId}-${d.rowNum}">
                 <div class="comments-list" id="comments-list-${d.sourceId}-${d.rowNum}">
                     ${commentsHtml}
                 </div>
                 <form class="comment-form" onsubmit="submitComment(event, '${escapeJs(d.sourceId)}', ${d.rowNum}, '${escapeJs(d.postKey)}')">
                     <div class="comment-form-row">
-                        <input type="text" class="comment-input-name" id="comment-name-${d.sourceId}-${d.rowNum}" placeholder="您的暱稱 (選填)">
-                        <input type="text" class="comment-input-msg" id="comment-msg-${d.sourceId}-${d.rowNum}" placeholder="寫下留言..." required>
+                        <input type="text" class="comment-input-name" id="comment-name-${d.sourceId}-${d.rowNum}" placeholder="您的暱稱 (選填)" value="${escapeHTML(draft.name)}" oninput="saveCommentDraft('${escapeJs(d.postKey)}', 'name', this.value)">
+                        <input type="text" class="comment-input-msg" id="comment-msg-${d.sourceId}-${d.rowNum}" placeholder="寫下留言..." required value="${escapeHTML(draft.msg)}" oninput="saveCommentDraft('${escapeJs(d.postKey)}', 'msg', this.value)">
                         <button type="submit" class="comment-submit-btn" id="comment-btn-${d.sourceId}-${d.rowNum}">送出</button>
                     </div>
                 </form>
@@ -1084,9 +1145,15 @@ async function setCommentStatus(btn, sourceId, rowNum, action) {
 
 function toggleComments(event, sourceId, rowNum, postKey) {
     if (event) event.stopPropagation();
+    const key = postKey || `${sourceId}:${rowNum}`;
     const section = document.getElementById(`comments-${sourceId}-${rowNum}`);
     if (!section) return;
-    section.classList.toggle('active');
+    const isActive = section.classList.toggle('active');
+    if (isActive) {
+        openCommentSections.add(key);
+    } else {
+        openCommentSections.delete(key);
+    }
 }
 
 async function submitComment(event, sourceId, rowNum, postKey) {
@@ -1138,6 +1205,7 @@ async function submitComment(event, sourceId, rowNum, postKey) {
             showToast("留言成功！已送至後台進行審核，核准後將會顯示。", "success");
             msgInput.value = "";
             nameInput.value = "";
+            delete commentDrafts[postKey];
             localStorage.setItem(lastSubmitKey, String(now));
         } else {
             showToast("留言失敗：" + (result.error || "未知錯誤"), "error");
